@@ -36,6 +36,19 @@
             it needs no account and no server — it is just much longer.
           </p>
 
+          <div class="form-check mt-3">
+            <input
+              id="shortLinkDontShowAgain"
+              v-model="dontShowAgain"
+              class="form-check-input"
+              type="checkbox"
+              data-testid="short-link-dont-show-again"
+            />
+            <label class="form-check-label" for="shortLinkDontShowAgain">
+              Don't show this warning again
+            </label>
+          </div>
+
           <div
             v-if="errorMessage"
             class="alert alert-danger mt-3 mb-0"
@@ -148,6 +161,7 @@ const shortUrl = ref('')
 const errorMessage = ref<string | null>(null)
 const copied = ref(false)
 const copyFailed = ref(false)
+const dontShowAgain = ref(false)
 const urlInput = ref<HTMLInputElement | null>(null)
 
 let copiedTimer: ReturnType<typeof setTimeout> | null = null
@@ -168,6 +182,9 @@ const confirm = async () => {
 
   stage.value = 'creating'
   errorMessage.value = null
+  // Committed the moment creation is attempted, not on every checkbox toggle: checking
+  // it and then hitting Cancel must not silently mute the warning for later layouts.
+  if (dontShowAgain.value) shortLinksStore.skipWarning = true
 
   try {
     const id = await shortLinksStore.create(keyboardStore.encodeCurrentLayout())
@@ -214,6 +231,7 @@ const reset = () => {
   errorMessage.value = null
   copied.value = false
   copyFailed.value = false
+  dontShowAgain.value = false
   if (copiedTimer) {
     clearTimeout(copiedTimer)
     copiedTimer = null
@@ -224,19 +242,25 @@ const reset = () => {
 // this session — the id is already known, so there is nothing to confirm and nothing
 // to wait for. A fresh sha256-keyed hit is exact (see stores/short-links.ts), so this
 // is not a guess: showing the link again is not "probably the same", it IS the same.
+//
+// Failing that, skipWarning (the "Don't show this warning again" checkbox, persisted
+// in stores/short-links.ts) skips the consent *screen*, not the creation call itself:
+// confirm() still runs, so a layout that has never been shared still hits the network,
+// just without making the user look at the warning text first.
 const openForCurrentLayout = async () => {
   const cachedId = shortLinksStore.cached(keyboardStore.encodeCurrentLayout())
-  if (!cachedId) {
-    reset()
+  if (cachedId) {
+    shortUrl.value = buildShortLinkUrl(cachedId)
+    errorMessage.value = null
+    copied.value = false
+    copyFailed.value = false
+    stage.value = 'done'
+    await nextTick()
+    urlInput.value?.focus()
     return
   }
-  shortUrl.value = buildShortLinkUrl(cachedId)
-  errorMessage.value = null
-  copied.value = false
-  copyFailed.value = false
-  stage.value = 'done'
-  await nextTick()
-  urlInput.value?.focus()
+  reset()
+  if (shortLinksStore.skipWarning) await confirm()
 }
 
 const handleKeyDown = (event: KeyboardEvent) => {

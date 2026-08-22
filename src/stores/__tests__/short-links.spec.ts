@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 
 const mocks = vi.hoisted(() => ({
@@ -25,12 +25,19 @@ function fakeClient(result: { data?: unknown; error?: unknown } = { data: '7kQ2m
   }
 }
 
+const SKIP_WARNING_STORAGE_KEY = 'kle-ng-short-link-skip-warning'
+
 describe('Short Links Store', () => {
   beforeEach(() => {
+    localStorage.clear()
     setActivePinia(createPinia())
     vi.clearAllMocks()
     mocks.isAuthConfigured.mockReturnValue(true)
     vi.spyOn(console, 'error').mockImplementation(() => {})
+  })
+
+  afterEach(() => {
+    localStorage.clear()
   })
 
   describe('create', () => {
@@ -233,6 +240,44 @@ describe('Short Links Store', () => {
       store.reset()
 
       expect(store.cached('compressed')).toBeNull()
+    })
+
+    it('leaves skipWarning alone — it is a device preference, not account data', () => {
+      const store = useShortLinksStore()
+      store.skipWarning = true
+
+      store.reset()
+
+      expect(store.skipWarning).toBe(true)
+    })
+  })
+
+  describe('skipWarning', () => {
+    it('defaults to false when nothing is saved', () => {
+      const store = useShortLinksStore()
+      expect(store.skipWarning).toBe(false)
+    })
+
+    it('loads a previously saved true from localStorage', () => {
+      localStorage.setItem(SKIP_WARNING_STORAGE_KEY, 'true')
+      setActivePinia(createPinia())
+      const store = useShortLinksStore()
+
+      expect(store.skipWarning).toBe(true)
+    })
+
+    it('persists a change to localStorage', async () => {
+      const store = useShortLinksStore()
+
+      store.skipWarning = true
+      await Promise.resolve()
+
+      expect(localStorage.getItem(SKIP_WARNING_STORAGE_KEY)).toBe('true')
+
+      store.skipWarning = false
+      await Promise.resolve()
+
+      expect(localStorage.getItem(SKIP_WARNING_STORAGE_KEY)).toBe('false')
     })
   })
 })

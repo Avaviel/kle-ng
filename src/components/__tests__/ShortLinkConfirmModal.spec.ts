@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { setActivePinia, createPinia } from 'pinia'
 
@@ -18,6 +18,7 @@ vi.mock('@/utils/supabase-loader', () => ({
 
 import ShortLinkConfirmModal from '../ShortLinkConfirmModal.vue'
 import { useKeyboardStore } from '@/stores/keyboard'
+import { useShortLinksStore } from '@/stores/short-links'
 
 /** Minimal stand-in: create_short_link is the only call the store makes. */
 function fakeClient(id = '7kQ2mBx9Lp') {
@@ -30,10 +31,15 @@ function fakeClient(id = '7kQ2mBx9Lp') {
 // what the consent-skip logic watches.
 describe('ShortLinkConfirmModal', () => {
   beforeEach(() => {
+    localStorage.clear()
     setActivePinia(createPinia())
     vi.clearAllMocks()
     mocks.isAuthConfigured.mockReturnValue(true)
     mocks.getSupabaseClient.mockResolvedValue(fakeClient())
+  })
+
+  afterEach(() => {
+    localStorage.clear()
   })
 
   it('shows the consent stage the first time a layout is shared', async () => {
@@ -80,5 +86,37 @@ describe('ShortLinkConfirmModal', () => {
 
     expect(wrapper.find('[data-testid="short-link-confirm"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="short-link-url"]').exists()).toBe(false)
+  })
+
+  it('checking "don\'t show again" and confirming skips consent for a later, different layout', async () => {
+    const keyboardStore = useKeyboardStore()
+    const wrapper = mount(ShortLinkConfirmModal, { props: { isVisible: false } })
+
+    await wrapper.setProps({ isVisible: true })
+    await wrapper.find('[data-testid="short-link-dont-show-again"]').setValue(true)
+    await wrapper.find('[data-testid="short-link-confirm"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[data-testid="short-link-url"]').exists()).toBe(true)
+
+    // A different layout, never shared before, so this can only skip via skipWarning
+    // (the cache is keyed by payload and has no entry for it).
+    await wrapper.setProps({ isVisible: false })
+    keyboardStore.metadata.name = 'changed'
+    await wrapper.setProps({ isVisible: true })
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="short-link-confirm"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="short-link-url"]').exists()).toBe(true)
+    expect(mocks.getSupabaseClient).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not persist the checkbox unless the user actually confirms', async () => {
+    const wrapper = mount(ShortLinkConfirmModal, { props: { isVisible: false } })
+
+    await wrapper.setProps({ isVisible: true })
+    await wrapper.find('[data-testid="short-link-dont-show-again"]').setValue(true)
+    await wrapper.find('[data-testid="short-link-cancel"]').trigger('click')
+
+    expect(useShortLinksStore().skipWarning).toBe(false)
   })
 })

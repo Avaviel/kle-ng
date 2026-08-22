@@ -1,8 +1,25 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { isAuthConfigured } from '@/config/supabase'
 import { getSupabaseClient } from '@/utils/supabase-loader'
 import { MAX_SHORT_LINK_PAYLOAD_LENGTH } from '@/utils/short-links'
+
+/**
+ * Whether the "Create a short link?" consent screen should be skipped entirely, per
+ * ShortLinkConfirmModal. A device-level preference, not account data: unlike `cache`
+ * below, it survives sign-out and is not reset() there.
+ */
+const SKIP_WARNING_STORAGE_KEY = 'kle-ng-short-link-skip-warning'
+
+function loadSkipWarning(): boolean {
+  try {
+    return localStorage.getItem(SKIP_WARNING_STORAGE_KEY) === 'true'
+  } catch {
+    // Storage may be unavailable (private mode, disabled). The warning just shows
+    // every time in that case, which is the safe default.
+    return false
+  }
+}
 
 /**
  * Short Links Store
@@ -75,6 +92,15 @@ function describeError(error: unknown, fallback: string): string {
 export const useShortLinksStore = defineStore('shortLinks', () => {
   const busy = ref(false)
   const errorMessage = ref<string | null>(null)
+  const skipWarning = ref(loadSkipWarning())
+
+  watch(skipWarning, (value) => {
+    try {
+      localStorage.setItem(SKIP_WARNING_STORAGE_KEY, value ? 'true' : 'false')
+    } catch {
+      // Falls back to an in-memory-only preference for this tab.
+    }
+  })
 
   // Payload -> id, for links this tab has already created or looked up this session.
   // Not a ref: nothing renders off it directly, it is only consulted imperatively (see
@@ -142,6 +168,7 @@ export const useShortLinksStore = defineStore('shortLinks', () => {
   return {
     busy,
     errorMessage,
+    skipWarning,
     cached,
     create,
     reset,
