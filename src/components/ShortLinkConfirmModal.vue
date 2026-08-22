@@ -220,6 +220,25 @@ const reset = () => {
   }
 }
 
+// Skips the warning entirely when this exact layout has already been shortened once
+// this session — the id is already known, so there is nothing to confirm and nothing
+// to wait for. A fresh sha256-keyed hit is exact (see stores/short-links.ts), so this
+// is not a guess: showing the link again is not "probably the same", it IS the same.
+const openForCurrentLayout = async () => {
+  const cachedId = shortLinksStore.cached(keyboardStore.encodeCurrentLayout())
+  if (!cachedId) {
+    reset()
+    return
+  }
+  shortUrl.value = buildShortLinkUrl(cachedId)
+  errorMessage.value = null
+  copied.value = false
+  copyFailed.value = false
+  stage.value = 'done'
+  await nextTick()
+  urlInput.value?.focus()
+}
+
 const handleKeyDown = (event: KeyboardEvent) => {
   if (event.key === 'Escape') close()
 }
@@ -230,7 +249,7 @@ watch(
     if (visible) {
       // Reset on open, not on close: a link left in the field would otherwise be the
       // first thing the next layout's dialog showed.
-      reset()
+      void openForCurrentLayout()
       document.addEventListener('keydown', handleKeyDown)
       document.body.classList.add('modal-open')
     } else {

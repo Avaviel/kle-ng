@@ -110,6 +110,37 @@ describe('Short Links Store', () => {
       await expect(store.create('compressed')).resolves.toBeNull()
       expect(store.errorMessage).toContain('Unexpected response')
     })
+
+    it('serves a repeat call for the same payload from cache, without a second RPC', async () => {
+      const client = fakeClient()
+      mocks.getSupabaseClient.mockResolvedValue(client)
+      const store = useShortLinksStore()
+
+      await expect(store.create('compressed')).resolves.toBe('7kQ2mBx9Lp')
+      await expect(store.create('compressed')).resolves.toBe('7kQ2mBx9Lp')
+
+      expect(client.rpc).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  describe('cached', () => {
+    it('is null until create has succeeded for that payload', async () => {
+      mocks.getSupabaseClient.mockResolvedValue(fakeClient())
+      const store = useShortLinksStore()
+
+      expect(store.cached('compressed')).toBeNull()
+      await store.create('compressed')
+      expect(store.cached('compressed')).toBe('7kQ2mBx9Lp')
+    })
+
+    it('does not cache a failed attempt', async () => {
+      mocks.getSupabaseClient.mockResolvedValue(fakeClient({ error: { message: 'boom' } }))
+      const store = useShortLinksStore()
+
+      await store.create('compressed')
+
+      expect(store.cached('compressed')).toBeNull()
+    })
   })
 
   describe('describeError', () => {
@@ -191,6 +222,17 @@ describe('Short Links Store', () => {
 
       expect(store.errorMessage).toBeNull()
       expect(store.busy).toBe(false)
+    })
+
+    it("clears the id cache, so the next user does not see a previous account's link", async () => {
+      mocks.getSupabaseClient.mockResolvedValue(fakeClient())
+      const store = useShortLinksStore()
+      await store.create('compressed')
+      expect(store.cached('compressed')).toBe('7kQ2mBx9Lp')
+
+      store.reset()
+
+      expect(store.cached('compressed')).toBeNull()
     })
   })
 })

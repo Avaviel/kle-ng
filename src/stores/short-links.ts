@@ -10,12 +10,13 @@ import { MAX_SHORT_LINK_PAYLOAD_LENGTH } from '@/utils/short-links'
  * Creation only. Resolution lives in utils/short-links.ts as a raw fetch — it has to
  * work for an anonymous visitor without loading supabase-js, and it needs no state.
  *
- * There is no local cache and no list. `short_links.created_by` records who first made
- * a link, but that is an operator's audit trail for catching abuse — no client can read
- * it, and it is not ownership: a link is shared by everyone who shortened that layout,
- * so there is no such thing as "my short links". Creation is idempotent because
- * `short_links.hash` is a unique index on sha256(payload), so pressing the button twice
- * finds the first call's row and returns its id.
+ * There is no list, but there is a one-session id cache (see `cache` below).
+ * `short_links.created_by` records who first made a link, but that is an operator's
+ * audit trail for catching abuse — no client can read it, and it is not ownership: a
+ * link is shared by everyone who shortened that layout, so there is no such thing as
+ * "my short links". Creation is idempotent because `short_links.hash` is a unique index
+ * on sha256(payload), so pressing the button twice finds the first call's row and
+ * returns its id.
  *
  * See supabase/migrations/20260816120000_short_links.sql.
  */
@@ -75,10 +76,20 @@ export const useShortLinksStore = defineStore('shortLinks', () => {
   const busy = ref(false)
   const errorMessage = ref<string | null>(null)
 
+  // Payload -> id, for links this tab has already created or looked up this session.
+  // Not a ref: nothing renders off it directly, it is only consulted imperatively (see
+  // cached()), so it does not need to be reactive. Since create_short_link is
+  // idempotent on sha256(payload), a hit is exact — there is no staleness to worry
+  // about, only entries this session never happened to make.
+  const cache = new Map<string, string>()
+
   const client = async () => {
     if (!isAuthConfigured()) throw new Error('Accounts are not configured')
     return getSupabaseClient()
   }
+
+  /** The id already known for this payload, if this session has created it before. */
+  const cached = (payload: string): string | null => cache.get(payload) ?? null
 
   /**
    * Get-or-create a short link id for a compressed payload.
@@ -91,6 +102,9 @@ export const useShortLinksStore = defineStore('shortLinks', () => {
     // returned nothing.
     errorMessage.value = null
     if (busy.value) return null
+
+    const hit = cache.get(payload)
+    if (hit) return hit
 
     // Fast path only — short_links_payload_length is the real limit, and describeError()
     // still translates it if the two ever drift apart.
@@ -107,6 +121,7 @@ export const useShortLinksStore = defineStore('shortLinks', () => {
       if (typeof data !== 'string') {
         throw new Error('Unexpected response from create_short_link')
       }
+      cache.set(payload, data)
       return data
     } catch (error) {
       console.error('Error creating short link:', error)
@@ -121,11 +136,13 @@ export const useShortLinksStore = defineStore('shortLinks', () => {
   const reset = () => {
     busy.value = false
     errorMessage.value = null
+    cache.clear()
   }
 
   return {
     busy,
     errorMessage,
+    cached,
     create,
     reset,
   }
