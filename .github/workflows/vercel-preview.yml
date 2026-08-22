@@ -53,22 +53,21 @@ jobs:
           VITE_BACKEND_URL: https://kicad.vps.keyboard-tools.xyz
           # Previews get their own Supabase project, never production's.
           #
-          # Set unconditionally, and deliberately so: `vercel build` runs in production
-          # mode and would otherwise read VITE_SUPABASE_* straight out of
-          # .env.production, pointing every preview at the live database. Process env
-          # beats .env files in Vite, so these always win - and when the secrets are
-          # absent (fork PRs) they resolve to empty, which disables accounts rather
-          # than leaking production credentials.
+          # Set unconditionally: `vercel build` runs in production mode and would
+          # otherwise read VITE_SUPABASE_* straight out of .env.production, pointing
+          # every preview at the live database. Process env overrides .env files in
+          # Vite, so these always win. When the secrets are absent (fork PRs) they
+          # resolve to empty, which disables accounts rather than leaking production
+          # credentials.
           VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL_PREVIEW }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY_PREVIEW }}
-          # Previews used to also compile in a shared password account here
-          # (VITE_TEST_USER_*), so signed-in features could be tried without a real
-          # GitHub round trip. Removed: the preview project has password sign-in
-          # disabled, so it never worked. See supabase/README.md.
+          # No shared password-account credentials (VITE_TEST_USER_*) are configured
+          # here: the preview project has password sign-in disabled. See
+          # supabase/README.md.
           #
           # Marks the bundle as a preview build: stamps the header title and makes the
-          # footer version link to the commit it was built from. Never set for the
-          # GitHub Pages production build, which keeps linking to the release tag.
+          # footer version link to the commit it was built from. Not set for the GitHub
+          # Pages production build, which keeps linking to the release tag.
           VITE_DEPLOY_ENV: preview
           # The commit actually checked out above: the PR head for pull_request_target
           # (where github.sha is the merge commit), the pushed commit for develop.

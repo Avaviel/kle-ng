@@ -44,10 +44,11 @@ describe('supabase config', () => {
   })
 
   describe('URL normalisation', () => {
-    // utils/short-links.ts concatenates this string directly, so a trailing slash there
-    // produced `//rest/v1/...` — a path the gateway does not route. It broke anonymous
-    // short-link resolution only, while supabase-js kept working, and reported the 404
-    // as a missing migration.
+    // utils/short-links.ts concatenates this string directly, so a trailing slash
+    // produces `//rest/v1/...`, a path the gateway does not route. That breaks
+    // anonymous short-link resolution while supabase-js (which builds URLs via
+    // `new URL()`) keeps working, and the failure shows up as a 404 that looks like
+    // a missing migration.
     it.each([
       ['https://abc.supabase.co/', 'a single trailing slash'],
       ['https://abc.supabase.co///', 'several trailing slashes'],
@@ -158,9 +159,8 @@ describe('supabase config', () => {
       })
     })
 
-    // Preview used to compile in a shared password account of its own. It was removed
-    // because the preview project has password sign-in disabled, so it could not work;
-    // a preview build must now look exactly like production here.
+    // The preview project has password sign-in disabled, so the shortcut cannot work
+    // there; a preview build must look the same as production here.
     it.each([
       ['preview', PREVIEW_URL],
       ['production', PRODUCTION_URL],
@@ -171,7 +171,7 @@ describe('supabase config', () => {
       expect(getTestUser()).toBeNull()
     })
 
-    // The env vars that used to carry them are gone; setting them must do nothing.
+    // VITE_TEST_USER_EMAIL / VITE_TEST_USER_PASSWORD are not read; setting them must do nothing.
     it('ignores VITE_TEST_USER_* if something still injects them', () => {
       vi.stubEnv('DEV', false)
       vi.stubEnv('VITE_TEST_USER_EMAIL', 'preview@example.com')

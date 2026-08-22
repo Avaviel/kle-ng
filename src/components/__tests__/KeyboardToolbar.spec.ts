@@ -96,9 +96,8 @@ describe('KeyboardToolbar', () => {
       expect(loadKLELayoutSpy).toHaveBeenCalledWith(mockPresetData)
     })
 
-    // Loading clears the filename, and this was the one caller that never set one:
-    // a preset used to keep whatever the previous layout was called, and would now
-    // otherwise download as 'keyboard-layout'.
+    // Loading clears the filename, and preset loading is the one caller that never
+    // sets one, so without a fix it would download as 'keyboard-layout'.
     it('should name the download after the preset it loaded', async () => {
       const pinia = createPinia()
       setActivePinia(pinia)
@@ -367,8 +366,8 @@ describe('KeyboardToolbar', () => {
     })
 
     it('creates nothing until the dialog is confirmed', async () => {
-      // The whole point of the dialog: storing a layout is public and cannot be undone,
-      // so opening the menu item must not itself be the irreversible act.
+      // Storing a layout is public and cannot be undone, so opening the menu item
+      // must not itself be the irreversible act.
       const pinia = createPinia()
       setActivePinia(pinia)
       signIn(useAuthStore())

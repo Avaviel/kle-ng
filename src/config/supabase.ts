@@ -3,8 +3,9 @@
  *
  * Accounts are strictly additive: when VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY are
  * unset, `isAuthConfigured()` returns false, every account feature hides, and
- * supabase-js is never loaded. The editor then behaves exactly as it does today.
- * This mirrors how `config/api.ts` gates the PCB generator on VITE_BACKEND_URL.
+ * supabase-js is never loaded, so the editor works the same as a build with no
+ * accounts feature at all. This mirrors how `config/api.ts` gates the PCB generator
+ * on VITE_BACKEND_URL.
  *
  * The anon key is public by design — it identifies the project, it does not grant
  * access. Row level security is the security boundary. The service-role key must
@@ -108,14 +109,12 @@ export interface TestUserCredentials {
  * Credentials for the "continue as test user" shortcut, or null when it must not
  * be offered — which is everywhere but a dev build against a local stack.
  *
- * Preview deployments used to get a shared password account of their own, compiled
- * in from VITE_TEST_USER_EMAIL / VITE_TEST_USER_PASSWORD. It was removed: the preview
- * project has password sign-in disabled, so `signInWithPassword` fails there whether
- * or not the account exists, and a shortcut that cannot work is worse than no
- * shortcut. Preview signs in with GitHub, the same way production does.
+ * The preview project has password sign-in disabled, so `signInWithPassword` would
+ * fail there whether or not the account exists, so preview does not get this
+ * shortcut and signs in with GitHub instead, the same way production does.
  *
  * `import.meta.env.DEV` is compiled away in production, so the seeded credentials
- * cannot reach a shipped bundle even if someone builds with a localhost URL — and
+ * cannot reach a shipped bundle even if someone builds with a localhost URL, and
  * `isLocalSupabase()` means no hosted project can ever match, production included.
  */
 export function getTestUser(): TestUserCredentials | null {

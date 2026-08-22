@@ -4,11 +4,11 @@
  * Dimension extraction and shape validation for the SVG content that can appear in a
  * keyboard key label.
  *
- * This module does NOT sanitize. It used to carry a regex denylist (`sanitizeSVG` /
- * `validateAndSanitize`) that nothing called; it was removed rather than left as a
- * loaded gun, because regex filtering of markup does not hold — it missed
- * `<animate onbegin>`, `xlink:href="javascript:"`, `<foreignObject>` and most modern
- * event attributes, so anything trusting it would have been exploitable.
+ * This module does NOT sanitize. It used to include a regex denylist (`sanitizeSVG` /
+ * `validateAndSanitize`) that nothing called, and it has been removed: regex filtering
+ * of markup is not reliable — it missed `<animate onbegin>`, `xlink:href="javascript:"`,
+ * `<foreignObject>` and most modern event attributes, so anything trusting it would have
+ * been exploitable.
  *
  * Label SVG is safe today because of where it ends up, not because it is cleaned:
  * LabelParser hands it to SVGCache, which encodes it as a `data:image/svg+xml` URL for

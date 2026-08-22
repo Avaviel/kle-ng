@@ -189,8 +189,8 @@ describe('MyLayoutsModal', () => {
     })
 
     // Below 576px the thumbnail shrinks and the two text lines are what set a row's
-    // height, so every state of the text column has to carry both of them or that state
-    // comes out shorter than the rest — and the modal resizes after all.
+    // height, so every state of the text column has to carry both of them. Otherwise
+    // that state comes out shorter than the rest, and the modal resizes after all.
     it('reserves two text lines in every state of a row', async () => {
       const { wrapper } = mountModal([makeLayout('one')])
       const [filled, empty] = slots(wrapper)
@@ -313,9 +313,9 @@ describe('MyLayoutsModal', () => {
       expect(nameField(wrapper)).toBe('Planck rev6')
     })
 
-    // filename is a download name, it outlives the layout it came from — this modal even
-    // sets it when loading a saved layout — so falling back to it proposed the *previous*
-    // layout's name.
+    // filename is a download name. It outlives the layout it came from (this modal
+    // even sets it when loading a saved layout), so falling back to it would propose
+    // the *previous* layout's name.
     it('leaves the field empty rather than proposing a previous layout name', async () => {
       const { wrapper } = await openModal({ name: '', filename: 'Planck rev6' })
       await startCreate(wrapper)
@@ -568,10 +568,10 @@ describe('MyLayoutsModal', () => {
       expect(save).not.toHaveBeenCalled()
     })
 
-    // The prompt used to sit among the buttons, the one column that cannot shrink. A
-    // flex item's automatic minimum size is its content width, so quoting a long name
-    // made it spill out of the row and crush the name column. It belongs in the info
-    // column, which can shrink — and the row already names the layout.
+    // The buttons column cannot shrink: a flex item's automatic minimum size is its
+    // content width, so putting the prompt there would let a long name spill out of
+    // the row and crush the name column. It belongs in the info column instead,
+    // which can shrink, and the row already names the layout.
     it('puts the confirmation prompt in the name column, not among the buttons', async () => {
       const longName = 'My 65% split ergo with thumb cluster v3'
       const { wrapper } = mountModal([makeLayout(longName)])

@@ -1,8 +1,8 @@
 -- Saved layouts, one row per stored keyboard layout.
 --
 -- The browser talks to PostgREST directly with the user's JWT, so every rule that
--- matters — ownership and the per-user quota — is enforced here. Nothing in the client
--- is load-bearing for security.
+-- matters — ownership and the per-user quota — is enforced here. The client enforces
+-- none of this.
 
 -- ---------------------------------------------------------------------------
 -- Quota, as a single source of truth shared by the trigger and the UI.

@@ -2,10 +2,10 @@
 //
 // Only the preview workflow (.github/workflows/vercel-preview.yml) sets VITE_DEPLOY_ENV
 // and VITE_GIT_COMMIT_SHA. The production GitHub Pages build leaves both unset, so it
-// resolves to 'production' and behaves exactly as it did before these variables existed.
+// resolves to 'production'.
 
 export const GITHUB_REPO_URL = 'https://github.com/adamws/kle-ng'
-// Where to send someone who landed on a preview build but wants the real thing
+// URL to link to from a preview build so users can get to the production site
 export const PRODUCTION_URL = 'https://editor.keyboard-tools.xyz'
 
 export type DeploymentEnv = 'local' | 'preview' | 'production'

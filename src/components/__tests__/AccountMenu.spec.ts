@@ -48,8 +48,8 @@ describe('AccountMenu', () => {
       expect(labels).toEqual(expect.arrayContaining(['Light', 'Dark', 'Auto']))
     })
 
-    // The theme picker used to be its own component that rendered unconditionally.
-    // Folding it in here must not make it depend on accounts being set up.
+    // The theme picker now renders inside this menu, but it must not depend on
+    // accounts being configured.
     it('stays available when accounts are not configured', () => {
       mocks.isAuthConfigured.mockReturnValue(false)
       const wrapper = mountMenu()

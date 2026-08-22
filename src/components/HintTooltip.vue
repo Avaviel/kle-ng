@@ -3,9 +3,9 @@
 
   The reason for the wrapper: a disabled button suppresses its own pointer events
   (`.btn:disabled { pointer-events: none }`), so neither a native `title` nor a tooltip
-  bound to the button ever fires — the one moment a user most needs to be told why the
-  button will not work is the one moment the browser stays silent. Hovering the wrapper
-  still works, because the events land on it instead.
+  bound to the button ever fires. That means the browser stays silent exactly when a
+  user needs to be told why the button won't work. Hovering the wrapper still works,
+  because the events land on it instead.
 
   `title` is passed as a function so the text stays live without re-creating the
   instance: Bootstrap resolves it at show time, which also means an empty string
@@ -47,7 +47,7 @@ let tooltip: Tooltip | null = null
 
 /**
  * A click on a disabled control lands on this wrapper, and a wrapper with `tabindex`
- * takes focus from it — which is one of the tooltip's triggers, so the tooltip would
+ * takes focus from it. Focus is one of the tooltip's triggers, so the tooltip would
  * stay open after the pointer left, until something else was clicked. Only tabbing to
  * it should focus it, so pointer focus is refused here.
  *

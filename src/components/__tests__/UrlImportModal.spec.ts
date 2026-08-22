@@ -59,7 +59,8 @@ describe('UrlImportModal — short links', () => {
       'Layout imported from share link',
       'Import Successful',
     )
-    // The point of the fix: this used to be fetched as if it were a JSON file.
+    // A short link must resolve through resolveShortLinkPayload(), not be fetched
+    // as if it were a JSON file.
     expect(fetch).not.toHaveBeenCalled()
   })
 

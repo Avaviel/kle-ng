@@ -43,15 +43,16 @@ jobs:
           retention-days: 1
 
       # The bundle above is what the deploy job publishes, so it carries the live
-      # Supabase project out of the committed .env.production. Rebuild over it with
-      # accounts switched off for e2e: the suite has no business talking to a database,
-      # and with no config isAuthConfigured() is false, so nothing is ever sent — the
-      # short-link resolve throws before it fetches and supabase-js is never loaded.
+      # Supabase project from the committed .env.production. Rebuild it here with
+      # accounts switched off for e2e, so the suite never talks to a database: with no
+      # config, isAuthConfigured() is false, the short-link resolve throws before it
+      # fetches, and supabase-js is never loaded.
       #
-      # Blank rather than a stub project, and blank works because process env beats .env
-      # files in Vite — the same mechanism vercel-preview.yml relies on to keep previews
-      # off the production database. The deploy artifact is already uploaded, so
-      # overwriting ./dist here costs nothing and keeps this to one extra step.
+      # The variables are set to empty strings rather than a stub project because
+      # process env overrides .env files in Vite (vercel-preview.yml uses the same
+      # mechanism to keep previews off the production database). The deploy artifact
+      # from the previous step is already uploaded, so overwriting ./dist here is a
+      # single extra build step.
       - name: Build project for e2e
         env:
           VITE_SUPABASE_URL: ''
@@ -67,10 +68,10 @@ jobs:
 
   # The RLS policies and grants are the entire security boundary: the browser talks to
   # PostgREST directly with the user's JWT, so nothing in the client enforces ownership.
-  # These two suites are what check that, and until now they were run by hand.
+  # These two suites check that; previously they were run by hand.
   #
-  # Independent of build-and-test on purpose — it needs no bundle, and booting the stack
-  # is the slow part, so there is no reason to serialise it behind anything.
+  # Runs independently of build-and-test: it needs no bundle, and booting the stack is
+  # the slow part, so there is no reason to serialize it behind anything.
   supabase-tests:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -90,20 +91,20 @@ jobs:
       # Applies supabase/migrations and supabase/seed.sql on the way up, so the schema
       # under test is the one in the repo.
       #
-      # gotrue is deliberately NOT excluded: the suites insert fixtures into auth.users
-      # and call auth.uid(), so the auth schema has to exist. The rest of the list is
-      # only there to skip containers no psql test touches — it is an optimisation, not a
-      # requirement, so if `start` ever misbehaves the honest fix is to drop the -x flag
-      # rather than to bisect the list. kong/postgrest/postgres-meta are left in because
-      # they are small and sit closest to the CLI's own readiness checks.
+      # gotrue is not excluded: the suites insert fixtures into auth.users and call
+      # auth.uid(), so the auth schema has to exist. The rest of the excluded list just
+      # skips containers no psql test touches — it's an optimization, not a requirement,
+      # so if `start` ever misbehaves, drop the -x flag rather than bisecting the list.
+      # kong/postgrest/postgres-meta are left running because they're small and close to
+      # the CLI's own readiness checks.
       - name: Start Supabase
         run: >
           npx supabase start
           -x studio,imgproxy,edge-runtime,logflare,vector,mailpit,supavisor,realtime,storage-api
 
-      # Asked for rather than hardcoded, so a port change in config.toml cannot leave this
-      # job pointing at nothing. The credentials are the CLI's fixed local defaults and
-      # the database is thrown away with the runner, so there is nothing here to protect.
+      # Queried rather than hardcoded, so a port change in config.toml can't leave this
+      # job pointing at nothing. The credentials are the CLI's fixed local defaults, and
+      # the database is discarded with the runner, so there's nothing here to protect.
       - name: Resolve the database URL
         run: |
           url=$(npx supabase status -o env | sed -n 's/^DB_URL=//p' | tr -d '"')
@@ -137,7 +138,7 @@ jobs:
           done
           exit $failed
 
-      # Diagnostics only — must never turn a green run red, or mask the real failure.
+      # Diagnostics only. Must never turn a passing run red or mask the real failure.
       - name: Collect Supabase diagnostics
         if: failure()
         continue-on-error: true
@@ -175,7 +176,7 @@ jobs:
         run: npx playwright install --with-deps ${{ matrix.project }}
 
       # dist-e2e, not dist: same bundle minus the Supabase configuration, so the suite
-      # cannot reach the production database. Served by the usual `npm run preview`.
+      # can't reach the production database. Served by the usual `npm run preview`.
       - name: Download build artifacts
         uses: actions/download-artifact@v8
         with:

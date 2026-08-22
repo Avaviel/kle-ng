@@ -149,12 +149,13 @@ export const useLayoutsStore = defineStore('layouts', () => {
   }
 
   /**
-   * Oldest first, which is what makes a row a slot: a layout's position is decided when
-   * it is created and nothing afterwards moves it.
+   * Oldest first. A layout's position is decided when it is created and nothing
+   * afterwards moves it, which is what makes a row a slot.
    *
-   * This used to sort by `updatedAt` descending. That put a layout at the top of the list
-   * the moment it was written, so saving into the fourth slot dragged it to the first and
-   * pushed every other row down — under the pointer that had just clicked it.
+   * Do not sort by `updatedAt` descending: that would move a layout to the top of the
+   * list the moment it is written, so saving into the fourth slot would drag it to the
+   * first and push every other row down, out from under the pointer that had just
+   * clicked it.
    */
   const sortInPlace = () => {
     layouts.value.sort((a, b) => a.createdAt.localeCompare(b.createdAt))

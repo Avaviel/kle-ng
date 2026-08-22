@@ -198,7 +198,8 @@ exception
     null;  -- 42501, as intended
 end $$;
 
--- Anon CAN resolve. This is the whole point of the feature.
+-- Anon CAN resolve. That's the intended behavior: short links are meant to be
+-- resolvable by anyone.
 do $$
 begin
   assert public.resolve_short_link(current_setting('short_links.test_id')) = 'payload-one',

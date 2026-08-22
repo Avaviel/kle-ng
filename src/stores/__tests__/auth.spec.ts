@@ -257,7 +257,7 @@ describe('auth store', () => {
       })
       // No page reload on this path, so the session must be applied directly
       expect(auth.isSignedIn).toBe(true)
-      // …and future changes must still be observed
+      // The subscription to future changes must also be set up
       expect(client.auth.onAuthStateChange).toHaveBeenCalled()
     })
 

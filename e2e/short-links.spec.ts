@@ -12,14 +12,14 @@ import { KeyboardEditorPage } from './pages/KeyboardEditorPage'
  * from that: behaviour that holds with accounts off, and behaviour that needs a
  * configured build — which in practice means a dev server with a `.env.local`.
  *
- * That blanking is the point, and it is load-bearing. `.env.production` is committed
- * with the *live* project's URL and anon key, so a plain `vite build` — which is what CI
- * used to hand the e2e job — compiles production credentials into the bundle under test.
- * An unstubbed `?s=` load then really did hit the live project, and when that failed in a
- * retryable way restoreShortLinkOnFailure() put the id back in the address bar, which is
- * correct behaviour and looks exactly like a strip that never happened.
+ * The blanking matters for another reason: `.env.production` is committed with the
+ * live project's URL and anon key, so a plain `vite build` — which is what CI used to
+ * hand the e2e job — compiles production credentials into the bundle under test. An
+ * unstubbed `?s=` load would then hit the live project, and if that failed in a
+ * retryable way, restoreShortLinkOnFailure() would put the id back in the address bar,
+ * which looks the same as a strip that never happened.
  *
- * So: stub `resolve_short_link` in every test that reaches it, and never assert anything
+ * Stub `resolve_short_link` in every test that reaches it, and don't assert anything
  * that depends on how a real server answers.
  */
 
@@ -46,11 +46,10 @@ test.describe('Short links', () => {
   test.skip(({ browserName }) => browserName !== 'chromium', 'Only run on Chromium')
 
   test('takes ?s= out of the address bar before the resolve finishes', async ({ page }) => {
-    // The resolve is held open so the assertion lands while it is still in flight. That
-    // is the property that matters: the id is consumed synchronously at startup, so it
-    // is already gone when signInWithOAuth() redirects to `origin + pathname` and drops
-    // the query. Asserting on the state *after* a resolve would instead be asserting
-    // which failure code came back.
+    // The resolve is held open so the assertion lands while it is still in flight: the
+    // id is consumed synchronously at startup, so it's already gone by the time
+    // signInWithOAuth() redirects to `origin + pathname` and drops the query. Asserting
+    // after the resolve completes would instead be testing which failure code came back.
     let release = () => {}
     const held = new Promise<void>((resolve) => (release = resolve))
     await page.route('**/rest/v1/rpc/resolve_short_link', async (route) => {

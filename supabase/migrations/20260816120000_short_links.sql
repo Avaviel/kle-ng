@@ -1,7 +1,7 @@
 -- Short links: deduplicated, immutable, publicly resolvable share ids.
 --
 -- The browser talks to PostgREST directly, so everything that matters is enforced here.
--- Nothing in the client is load-bearing for security.
+-- The client enforces none of this.
 --
 -- The table is NEVER selectable. `anon` and `authenticated` hold no privilege on it at
 -- all and there are no RLS policies for them. The only way in or out is the two

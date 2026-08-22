@@ -65,8 +65,8 @@
               <!--
                 A vacant slot's stand-in for the thumbnail: the ghost of a keyboard,
                 faint enough to read as the shape of what would be here. While the first
-                fetch is in flight it pulses instead of claiming to be empty — it is not
-                known yet whether it is.
+                fetch is in flight it pulses instead of claiming to be empty, because at
+                that point it isn't known yet whether the slot really is empty.
               -->
               <div
                 v-else
@@ -353,20 +353,20 @@
 
           <!--
             The caption is always present, so filling the last slot changes the sentence
-            and not the height. It is a caption rather than the banner it replaces because
-            that one appeared on the fifth save and pushed the whole list down.
+            and not the height. It replaces a banner that used to appear on the fifth
+            save, which pushed the whole list down.
 
-            An error takes this line rather than one of its own. It arrives in response to
-            a click, and the dialog is centred, so anything that changes the body's height
-            moves every row half that distance — under the pointer that was just used. The
-            caption is the one line here that can be spared: it says how much room is left,
-            which is not what matters while an error is on screen, and it comes back with
-            the error, which the next action clears.
+            An error takes this line instead of getting its own. It arrives in response
+            to a click, and the dialog is centred, so anything that changes the body's
+            height moves every row by half that distance, under the pointer that was
+            just used. The caption is the one line here that can be spared: it says how
+            much room is left, which doesn't matter while an error is on screen, and it
+            comes back once the error is cleared by the next action.
 
             It is anchored to the top of this line and grows downward into the body's
-            padding, never upward: a message long enough to wrap must not reach the last
-            row's buttons, which is exactly where a failed save leaves its name field open
-            and waiting to be tried again.
+            padding, never upward. A message long enough to wrap must not reach the last
+            row's buttons, since that's exactly where a failed save leaves its name field
+            open and waiting to be tried again.
           -->
           <div class="caption-line">
             <p class="small text-muted mb-0" data-testid="slot-caption">
@@ -430,7 +430,8 @@ import BiDownload from 'bootstrap-icons/icons/download.svg'
 // box-arrow-in-right, not one of the download arrows: `download.svg` already means
 // "write a file to disk" in PlateDownloadButtons, and this loads into the editor. Its
 // ink is also centred in its 16px box and only 12px tall, so it sits on the same
-// optical line as the label — box-arrow-in-down's ran to the bottom edge of the box.
+// optical line as the label. box-arrow-in-down's ink instead ran to the bottom edge
+// of its box.
 import BiBoxArrowInRight from 'bootstrap-icons/icons/box-arrow-in-right.svg'
 import BiPencil from 'bootstrap-icons/icons/pencil.svg'
 import BiTrash from 'bootstrap-icons/icons/trash.svg'
@@ -466,10 +467,10 @@ const pending = ref<PendingAction | null>(null)
 
 /**
  * Why a write is unavailable, in the order the conditions are worth reporting. Both of
- * these resolve on their own, which is all a user needs to know here: a save is never
- * refused for being at the quota, because a full list has no open slot to press, and
- * saving over a slot is an update rather than an insert — the database only counts
- * inserts, so it stays available at the quota.
+ * these resolve on their own, which is all a user needs to know here. A save is never
+ * refused for being at the quota: a full list has no open slot to press, and saving
+ * over a slot is an update rather than an insert. The database only counts inserts, so
+ * it stays available at the quota.
  *
  * Empty means the buttons work — `canWrite` is derived from it, so a button and the
  * explanation for it can never disagree.
@@ -579,14 +580,13 @@ const isCreatingAt = (index: number) => creatingIndex.value === index
 
 /**
  * Only the first fetch of a session has nothing to show: a refetch keeps the previous
- * rows on screen until the new ones replace them, which is itself a way of not moving
- * anything.
+ * rows on screen until the new ones replace them, so nothing visibly moves.
  */
 const isLoadingSlots = computed(() => store.loading && store.layouts.length === 0)
 
 const quotaCaption = computed(() => {
-  // A non-breaking space rather than nothing: until the first fetch lands the count is
-  // not known, and an empty line would be a shorter line.
+  // A non-breaking space rather than nothing: until the first fetch lands the count
+  // isn't known, and an empty line would be a shorter line than the others.
   if (isLoadingSlots.value) return '\u00a0'
   const used = store.layouts.length
   if (used >= store.quota) {
@@ -596,26 +596,27 @@ const quotaCaption = computed(() => {
 })
 
 /**
- * Whether this row is where the editor's work came from. Both halves matter: the id says
- * which layout, and the token says the editor has not been handed something else since —
- * `layoutGeneration` moves whenever the contents are replaced wholesale, so an import or
- * a new layout retires the mark on its own. Editing does not: an edited layout is exactly
- * the one you want to put back in its own slot.
+ * Whether this row is where the editor's work came from. Both parts have to match: the
+ * id says which layout, and the token says the editor hasn't been handed something else
+ * since. `layoutGeneration` moves whenever the contents are replaced wholesale, so an
+ * import or a new layout clears the mark on its own. Editing does not, since an edited
+ * layout is still exactly the one you'd want to put back in its own slot.
  */
 const isCurrent = (layout: SavedLayout) =>
   store.activeId === layout.id && store.activeToken === keyboardStore.layoutGeneration
 
 /**
  * Decoded payloads, so a re-render does not re-parse every row. A payload that fails to
- * decode yields null and the row degrades to a placeholder with Load disabled, rather
- * than taking the whole list down.
+ * decode yields null, and the row degrades to a placeholder with Load disabled instead
+ * of taking the whole list down.
  *
- * Keyed by the payload and not by the layout id, which is what makes an overwrite show
- * up. An id survives a write, so the cache had to be invalidated by hand after one — and
- * that invalidation ran after the store mutation had already queued the re-render, so the
- * row could redraw from the entry it was about to drop and keep the old picture on screen
- * until something unrelated re-rendered it. Keyed by payload there is nothing to
- * invalidate: new contents are a new key, and LayoutThumbnail watches for exactly the new
+ * Keyed by the payload rather than by the layout id, so an overwrite is reflected
+ * correctly. An id survives a write, so keying by id would require invalidating the
+ * cache entry by hand after a write, and that invalidation would run after the store
+ * mutation had already queued the re-render — meaning the row could redraw from the
+ * entry it was about to drop, showing the old picture until something unrelated
+ * triggered another re-render. Keyed by payload, there is nothing to invalidate: new
+ * contents are a new key, and LayoutThumbnail watches for exactly the new
  * `keys`/`metadata` identity a miss produces.
  */
 const decodedCache = new Map<string, { keys: Key[]; meta: KeyboardMetadata } | null>()
@@ -665,14 +666,14 @@ const currentPayload = () => {
 }
 
 /**
- * Prefill from the layout's own name, and from nothing else — an unnamed layout offers an
+ * Prefill from the layout's own name, and from nothing else. An unnamed layout gets an
  * empty field and its placeholder.
  *
- * `keyboardStore.filename` used to be the fallback, with 'Untitled layout' behind it.
- * But filename is what a download is called, not what the layout is: `loadKeyboard()`
- * never clears it and only some import paths set it, so it outlives the layout it came
- * from and proposed the previous one's name. An empty field is the better default — it
- * says nothing rather than saying something stale.
+ * `keyboardStore.filename` is not used as a fallback here. Filename is what a download
+ * is called, not what the layout is: `loadKeyboard()` never clears it, and only some
+ * import paths set it, so it can outlive the layout it came from and carry the previous
+ * layout's name. An empty field is the better default, since it says nothing rather
+ * than saying something stale.
  */
 const defaultName = () => keyboardStore.metadata.name?.trim() ?? ''
 

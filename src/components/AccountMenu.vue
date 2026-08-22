@@ -2,11 +2,11 @@
   <!--
     The trailing header menu. It carries the theme setting as well as the account,
     so unlike the account section inside it, it renders whether or not accounts are
-    configured — otherwise a build without Supabase env vars would have no way to
+    configured. Otherwise a build without Supabase env vars would have no way to
     change the theme at all.
 
-    For the same reason `auth.busy` disables the account entries rather than the
-    trigger: signIn() leaves `busy` set on its success path (the browser is meant to
+    For the same reason, `auth.busy` disables the account entries rather than the
+    trigger. signIn() leaves `busy` set on its success path (the browser is meant to
     leave the page), so a bfcache restore after a back-navigation would otherwise
     come back with theme switching permanently unavailable.
   -->
@@ -30,8 +30,8 @@
     </button>
 
     <ul class="dropdown-menu dropdown-menu-end" data-testid="user-menu-dropdown">
-      <!-- Theme first: it is the only entry every visitor can use, and putting it at
-           the top is what makes it findable behind an unlabeled icon. -->
+      <!-- Theme goes first: it's the only entry every visitor can use, and putting it
+           at the top makes it findable behind an unlabeled icon. -->
       <li><h6 class="dropdown-header">Theme</h6></li>
       <li>
         <button
@@ -66,7 +66,7 @@
 
       <!-- Accounts are optional; without them the menu is just the theme picker -->
       <template v-if="auth.isConfigured">
-        <!-- Sign out has no heading band of its own, so it needs the divider; the
+        <!-- Sign out has no heading band of its own, so it needs the divider. The
              signed-out branch below is introduced by its own band instead. -->
         <template v-if="auth.isSignedIn">
           <li><hr class="dropdown-divider" /></li>
@@ -87,7 +87,7 @@
           <li><h6 class="dropdown-header">Sign in to save layouts</h6></li>
           <!--
             GitHub is the only provider enabled in Supabase. `AuthProvider` still allows
-            'google', so adding it back is this block plus dashboard configuration.
+            'google', so adding it back only needs this block plus dashboard configuration.
           -->
           <li>
             <button
@@ -101,9 +101,9 @@
             </button>
           </li>
 
-          <!-- The account seeded into the local dev stack, and only that: getTestUser()
-               requires a dev build against a local instance, so no deployed build —
-               preview or production — ever offers this. -->
+          <!-- The account seeded into the local dev stack, and only that. getTestUser()
+               requires a dev build against a local instance, so no deployed build,
+               preview or production, ever offers this. -->
           <template v-if="auth.canUseTestUser">
             <li><hr class="dropdown-divider" /></li>
             <li>
@@ -154,7 +154,7 @@ const triggerLabel = computed(() => {
 </script>
 
 <style scoped>
-/* Deliberately not a .btn: the avatar is already a circle, and a rectangle drawn
+/* Not a .btn on purpose: the avatar is already a circle, and a rectangle drawn
    around it read as a box with a circle in it. The padding and the transparent border
    reproduce a .btn's footprint exactly, so dropping the chrome leaves every other
    control in the header where it was. */

@@ -1,9 +1,8 @@
 -- Two-user RLS and quota verification.
 --
--- The plan calls this the highest-consequence test in the project: with RLS, the
--- browser writes to PostgREST directly, so these policies are the only thing standing
--- between one user's layouts and another's. Run it after applying the migrations and
--- again after ANY policy change.
+-- The browser writes to PostgREST directly, so these policies are the only thing
+-- standing between one user's layouts and another's. Run it after applying the
+-- migrations and again after ANY policy change.
 --
 -- How to run: paste into the Supabase SQL editor, or
 --   psql "$DATABASE_URL" -f supabase/tests/rls-verification.sql
@@ -221,7 +220,7 @@ end $$;
 -- missing grant, the absence of any anon policy, and user_id's NOT NULL against a
 -- default of auth.uid() that is null without a JWT. Only the first produces 42501, so if
 -- a future change loosens the grants this block either raises FAILED or aborts the
--- script on the uncaught error — both are failures, which is the point.
+-- script on the uncaught error. Both count as a failed check.
 do $$
 begin
   insert into public.layouts (name, payload) values ('anon', 'p');

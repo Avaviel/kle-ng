@@ -1,12 +1,12 @@
 <template>
   <div class="toolbar-container keyboard-toolbar" data-testid="panel-toolbar-container">
     <!-- Right side: My Layouts, Import/Export/Share -->
-    <!-- Everything fits one row at every width now that the preset dropdown, which
-         was the widest control by far, has moved into the Import menu. -->
+    <!-- Everything fits one row at every width because the preset dropdown, previously
+         the widest control here by far, now lives in the Import menu. -->
     <div class="d-flex flex-row align-items-center gap-2 gap-sm-3 justify-content-end">
       <!-- Only shown to signed-in users; accounts are optional and off by default.
-           Kept out of the button group below so it reads as its own destination
-           rather than a fourth import/export action. -->
+           Kept out of the button group below so it reads as its own destination,
+           not a fourth import/export action. -->
       <button
         v-if="authStore.isSignedIn"
         class="btn btn-outline-primary flex-shrink-0"
@@ -203,7 +203,7 @@
           </button>
 
           <!-- Short links need a session to create, so the caret only exists for
-               signed-in users — the same gate as the My Layouts button above. -->
+               signed-in users, the same gate as the My Layouts button above. -->
           <template v-if="authStore.isSignedIn">
             <button
               class="btn btn-primary dropdown-toggle dropdown-toggle-split"

@@ -607,12 +607,12 @@ export const useKeyboardStore = defineStore('keyboard', () => {
       }
 
       selectedKeys.value = []
-      // The filename described the layout being replaced, so it cannot survive this.
-      // Callers that know what the incoming layout is called assign it immediately
-      // afterwards; the ones that do not — presets, share links, gists — used to
-      // inherit the previous layout's name silently. `updateLayoutFromJson` edits the
-      // open layout rather than replacing it and deliberately does not come through
-      // here, so editing the JSON keeps its filename.
+      // The filename described the layout being replaced, so it must be cleared here.
+      // Callers that know the incoming layout's name set filename.value right after this
+      // call; presets, share links, and gists don't, so they're left with an empty
+      // filename until the next save. `updateLayoutFromJson` edits the open layout
+      // instead of replacing it and does not go through this code path, so editing the
+      // JSON keeps the existing filename.
       filename.value = ''
       history.value = []
       historyIndex.value = -1

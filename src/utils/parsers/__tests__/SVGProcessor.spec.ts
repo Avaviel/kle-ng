@@ -265,10 +265,10 @@ describe('SVGProcessor', () => {
   })
 
   describe('security', () => {
-    // The regex denylist that used to live here was removed, not replaced: it was dead
-    // code, and regex filtering of markup does not hold. Label SVG is safe because
-    // SVGCache renders it as a `data:image/svg+xml` URL in an `<img>`, which is not a
-    // scripting context. If a sanitizer is ever needed, it must be a real one.
+    // The regex denylist that used to be here has been removed rather than replaced: it
+    // was dead code, and regex filtering of markup is not reliable. Label SVG is safe
+    // because SVGCache renders it as a `data:image/svg+xml` URL in an `<img>`, which is
+    // not a scripting context. If a sanitizer is ever needed, it must be a real one.
     it('exposes no sanitizer to be mistaken for a security boundary', () => {
       expect((svgProcessor as unknown as Record<string, unknown>).sanitizeSVG).toBeUndefined()
       expect(

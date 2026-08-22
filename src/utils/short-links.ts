@@ -2,17 +2,17 @@
  * Short share links — `https://editor.keyboard-tools.xyz/?s=<id>`.
  *
  * A short link is a pointer to an lz-string compressed layout stored in Supabase. Only
- * signed-in users can create one (see stores/short-links.ts); anybody can open one,
- * which is what this module is mostly about. The id is random rather than derived from
- * the layout — deduplication happens server-side on a hash of the payload — so holding
- * a layout tells you nothing about whether it has been shared.
+ * signed-in users can create one (see stores/short-links.ts); anybody can open one, and
+ * that is what this module handles. The id is random rather than derived from the
+ * layout — deduplication happens server-side on a hash of the payload — so holding a
+ * layout tells you nothing about whether it has been shared.
  *
- * Resolution is a raw `fetch` against PostgREST rather than a supabase-js call, and
- * deliberately so: opening a short link is the most common action an *anonymous*
- * visitor takes here, and the auth design's headline property is that a logged-out
- * visitor never downloads supabase-js (~40-50 KB) at all. Loading a client library to
- * send one POST with two headers would be the first thing to break it. Nothing in this
- * file may import `@supabase/supabase-js`, not even lazily.
+ * Resolution uses a raw `fetch` against PostgREST instead of a supabase-js call. Opening
+ * a short link is the most common action an anonymous visitor takes here, and a core
+ * requirement of the auth design is that a logged-out visitor never downloads
+ * supabase-js (~40-50 KB) at all. Loading a client library to send one POST with two
+ * headers would break that. Nothing in this file may import `@supabase/supabase-js`,
+ * not even lazily.
  *
  * A query parameter rather than a fragment: unlike `#share=`, `?s=` is visible to a
  * server, which leaves room for per-link social previews later. See
@@ -64,9 +64,9 @@ export class ShortLinkError extends Error {
  * puts an id back in the address bar that can never resolve, so every reload re-shows
  * the same error — and a code added later would inherit that behaviour by default.
  *
- * `unconfigured` is the case that makes the point: it reads like a server problem, but
- * it means VITE_SUPABASE_* were absent when this bundle was built, so it is as permanent
- * as a malformed id.
+ * `unconfigured` is a good example: it looks like a server problem, but it means
+ * VITE_SUPABASE_* were absent when this bundle was built, so it is just as permanent as
+ * a malformed id.
  */
 function isRetryable(error: ShortLinkError): boolean {
   switch (error.code) {

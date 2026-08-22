@@ -11,9 +11,9 @@ account surface hides, and `@supabase/supabase-js` is never even downloaded. Thi
 `config/api.ts` gates the [PCB Generator](./pcb-generator.md) on `VITE_BACKEND_URL`.
 
 There is no application server in front of the database. The browser talks to Supabase's PostgREST
-endpoint directly with the user's JWT, so **Row Level Security is the security boundary** — nothing
-in the client is load-bearing for it, and the per-user quota is a database trigger rather than a
-client-side check.
+endpoint directly with the user's JWT, so **Row Level Security is the security boundary** — the
+client enforces none of it, and the per-user quota is a database trigger rather than a client-side
+check.
 
 ## Architecture Overview
 
@@ -248,10 +248,10 @@ actionable hint that can apply — run `npm run supabase:reset` to seed the acco
 second message for a hosted project, because the gate above means a hosted project never reaches
 this code. Any other error is surfaced as-is.
 
-Preview deployments used to get their own shared password account via `VITE_TEST_USER_EMAIL` /
-`VITE_TEST_USER_PASSWORD`. It was removed because the preview project has password sign-in disabled,
-so it could never work; `src/config/__tests__/supabase.spec.ts` has a test asserting those variables
-are ignored if something still injects them.
+There is no shared password account for preview deployments: the preview project has password
+sign-in disabled, so `VITE_TEST_USER_EMAIL` / `VITE_TEST_USER_PASSWORD` would never work.
+`src/config/__tests__/supabase.spec.ts` has a test asserting those variables are ignored if something
+still injects them.
 
 ## State Management
 
@@ -343,11 +343,10 @@ and exception names the database raises:
   `keyboardStore.filename = layout.name`, then calls `keyboardStore.updateBaseline()` — loading a
   stored layout is not an unsaved change, so the dirty indicator and the `beforeunload` guard stay
   honest. Load is confirmed first if `keyboardStore.dirty`.
-- **Name prefill** comes from `keyboardStore.metadata.name` and nothing else. This branch also
-  changed `loadKeyboard()` in `stores/keyboard.ts` to clear `filename`, because a filename describes
-  the layout being replaced and cannot survive the replacement. (`updateLayoutFromJson` edits the
-  open layout rather than replacing it and deliberately does not come through that path, so editing
-  the JSON keeps its filename.)
+- **Name prefill** comes from `keyboardStore.metadata.name` and nothing else. `loadKeyboard()` in
+  `stores/keyboard.ts` clears `filename`, because a filename describes the layout being replaced and
+  cannot survive the replacement. (`updateLayoutFromJson` edits the open layout rather than replacing
+  it and deliberately does not come through that path, so editing the JSON keeps its filename.)
 
 ## Database
 
@@ -395,7 +394,7 @@ so the count is authoritative rather than whatever the caller's RLS policies hap
 raises `layout_quota_exceeded` (P0001, surfaced by PostgREST as HTTP 400 with the message intact)
 once the user already holds `layout_quota()` rows.
 
-Its early return is the subtle part:
+Its early return matters:
 
 ```sql
 if current_user_id is null or new.user_id is distinct from current_user_id then
@@ -480,7 +479,7 @@ create table public.short_links (
 );
 ```
 
-Three properties shape it, and all are load-bearing:
+Three properties shape it, and all three matter for security:
 
 **The table is never selectable.** No role holds a privilege on it and there are no RLS policies —
 the only way in or out is `create_short_link()` / `resolve_short_link()`, both `SECURITY DEFINER`.
@@ -576,9 +575,8 @@ stays available with every slot used, and only the vacant-slot save runs out.
 
 ### RLS verification (`supabase/tests/rls-verification.sql`)
 
-The highest-consequence test in the project: with direct-to-PostgREST writes, these policies are the
-only thing standing between one user's layouts and another's. Run it after applying the migrations
-and again after **any** policy change.
+With direct-to-PostgREST writes, these policies are the only thing standing between one user's
+layouts and another's. Run it after applying the migrations and again after **any** policy change.
 
 ```sh
 psql "$DATABASE_URL" -f supabase/tests/rls-verification.sql
@@ -676,18 +674,18 @@ committed values because process env beats `.env` files in Vite — the same mec
 `resolveShortLinkPayload()` throws before it fetches and supabase-js is never loaded: there is
 nothing to send a request with.
 
-That matters because `.env.production` is committed with the **live** project's credentials, so the
-plain `vite build` the e2e job used to consume compiled them into the bundle under test.
-`e2e/short-links.spec.ts` was making real `resolve_short_link` calls against production, and when
-one failed in a retryable way `restoreShortLinkOnFailure()` put `?s=` back and failed the test's
+This matters because `.env.production` is committed with the **live** project's credentials, so a
+plain `vite build` compiles them into the bundle under test. Without blanking them out,
+`e2e/short-links.spec.ts` would make real `resolve_short_link` calls against production, and a
+retryable failure there would make `restoreShortLinkOnFailure()` put `?s=` back and fail the test's
 strip assertion.
 
 The cost is that anything needing a configured build cannot run in CI. `e2e/short-links.spec.ts`
 splits on exactly that: the tests that need a resolve to be attempted are gated on a probe of the
 page (the `sign-in-github` entry, which renders only when `auth.isConfigured`) and run against a
-dev server with a `.env.local` — the local stack, never a hosted project. They were already
-skipping in CI before this, on a `process.env.VITE_SUPABASE_URL` check that described Playwright's
-own process rather than the bundle.
+dev server with a `.env.local` — the local stack, never a hosted project. That gate uses the probe
+rather than `process.env.VITE_SUPABASE_URL`, which would describe Playwright's own process rather
+than the bundle.
 
 ### `config/deployment.ts`
 
@@ -732,10 +730,9 @@ npx supabase db push
 
 ### `AccountMenu.vue` — header dropdown
 
-Mounted in `App.vue`'s header `<nav>`, next to `KeyboardToolbar` (it replaced the removed
-`ThemeToggle.vue`, absorbing the theme picker). Because it now owns the theme setting, **it renders
-whether or not accounts are configured** — otherwise a build without Supabase env vars would have no
-way to change the theme at all.
+Mounted in `App.vue`'s header `<nav>`, next to `KeyboardToolbar`. It owns the theme picker (there is
+no separate `ThemeToggle.vue`), so **it renders whether or not accounts are configured** — otherwise
+a build without Supabase env vars would have no way to change the theme at all.
 
 - Trigger: avatar when signed in with an `avatarUrl`, otherwise a person icon. It is deliberately not
   a `.btn` — the avatar is already a circle. The account is identified through `triggerLabel`
@@ -936,9 +933,9 @@ backdating `created_at`, which is the value the window predicate actually reads.
   anyone has ever shared. Read and write only through the two `SECURITY DEFINER` functions.
 - **`create_short_link` must not use `on conflict do nothing`.** Under READ COMMITTED it returns no
   row and no error without waiting for a concurrent inserter of the same payload, so the function
-  would draw a new id and write a second row for the same hash. The bare `INSERT` inside an exception
-  block is load-bearing, as is the lookup-by-hash that tells a payload race apart from an id
-  collision.
+  would draw a new id and write a second row for the same hash. Both the bare `INSERT` inside an
+  exception block and the lookup-by-hash that tells a payload race apart from an id collision are
+  required for correctness.
 - **`create_short_link`'s parameter must stay named `payload`** — it is the JSON body key PostgREST
   expects. Renaming it is an API break.
 - **`?s=` is consumed synchronously** at the top of `initWithSample()`. Do not "fix" its loss across
