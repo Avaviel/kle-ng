@@ -4,13 +4,22 @@
       <div class="modal-content">
         <div class="modal-header">
           <h5 class="modal-title">
-            {{ stage === 'done' ? 'Your short link' : 'Create a short link?' }}
+            {{ modalTitle }}
           </h5>
           <button type="button" class="btn-close" @click="close" aria-label="Close"></button>
         </div>
 
+        <!-- Auto-confirming via the "don't show again" preference: the user opted out of
+             the warning, so a create still in flight must not flash it at them anyway.
+             Checked before the 'done' result below only matters while stage is still
+             'creating' — confirm() clears it once the request settles either way. -->
+        <div v-if="silentCreate" class="modal-body text-center py-4">
+          <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+          Creating short link…
+        </div>
+
         <!-- Consent. Nothing has been stored yet, and Cancel is still a way out. -->
-        <div v-if="stage !== 'done'" class="modal-body">
+        <div v-else-if="stage !== 'done'" class="modal-body">
           <p>
             A short link stores this layout on the kle-ng server and gives you a URL that points at
             it. Before you create one:
@@ -94,7 +103,7 @@
           </div>
         </div>
 
-        <div class="modal-footer">
+        <div v-if="!silentCreate" class="modal-footer">
           <template v-if="stage !== 'done'">
             <button
               type="button"
@@ -135,7 +144,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, nextTick, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useKeyboardStore } from '@/stores/keyboard'
 import { useShortLinksStore } from '@/stores/short-links'
 import { buildShortLinkUrl } from '@/utils/short-links'
@@ -163,8 +172,18 @@ const copied = ref(false)
 const copyFailed = ref(false)
 const dontShowAgain = ref(false)
 const urlInput = ref<HTMLInputElement | null>(null)
+// True only while a create is running because skipWarning auto-confirmed it, without the
+// user ever seeing the consent screen — the warning body and buttons stay hidden for the
+// duration so a slow request doesn't flash the very warning the user opted out of.
+const silentCreate = ref(false)
 
 let copiedTimer: ReturnType<typeof setTimeout> | null = null
+
+const modalTitle = computed(() => {
+  if (stage.value === 'done') return 'Your short link'
+  if (silentCreate.value) return 'Creating short link…'
+  return 'Create a short link?'
+})
 
 const close = () => emit('close')
 
@@ -189,18 +208,23 @@ const confirm = async () => {
   try {
     const id = await shortLinksStore.create(keyboardStore.encodeCurrentLayout())
     if (!id) {
+      // A silent (skipWarning) attempt that fails still needs the user to see why and
+      // decide what to do next, so it falls back to the normal consent+error screen.
+      silentCreate.value = false
       errorMessage.value = shortLinksStore.errorMessage || 'Could not create a short link.'
       stage.value = 'consent'
       return
     }
     shortUrl.value = buildShortLinkUrl(id)
     stage.value = 'done'
+    silentCreate.value = false
     // Focus the field rather than copying: the user asked for a link, not for their
     // clipboard to change. Selecting it makes a manual copy one keystroke away.
     await nextTick()
     urlInput.value?.focus()
   } catch (error) {
     console.error('Error creating short link:', error)
+    silentCreate.value = false
     errorMessage.value = 'Could not create a short link. Please try again.'
     stage.value = 'consent'
   }
@@ -232,6 +256,7 @@ const reset = () => {
   copied.value = false
   copyFailed.value = false
   dontShowAgain.value = false
+  silentCreate.value = false
   if (copiedTimer) {
     clearTimeout(copiedTimer)
     copiedTimer = null
@@ -260,7 +285,10 @@ const openForCurrentLayout = async () => {
     return
   }
   reset()
-  if (shortLinksStore.skipWarning) await confirm()
+  if (shortLinksStore.skipWarning) {
+    silentCreate.value = true
+    await confirm()
+  }
 }
 
 const handleKeyDown = (event: KeyboardEvent) => {

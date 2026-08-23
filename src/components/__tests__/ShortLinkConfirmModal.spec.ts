@@ -110,6 +110,42 @@ describe('ShortLinkConfirmModal', () => {
     expect(mocks.getSupabaseClient).toHaveBeenCalledTimes(2)
   })
 
+  it('does not show the warning text while a skipWarning create is still in flight', async () => {
+    const keyboardStore = useKeyboardStore()
+    const wrapper = mount(ShortLinkConfirmModal, { props: { isVisible: false } })
+
+    await wrapper.setProps({ isVisible: true })
+    await wrapper.find('[data-testid="short-link-dont-show-again"]').setValue(true)
+    await wrapper.find('[data-testid="short-link-confirm"]').trigger('click')
+    await flushPromises()
+
+    // A second, never-before-shared layout: skipWarning auto-confirms it, but this time
+    // the RPC is held open so the in-flight DOM can be inspected before it settles.
+    let resolveRpc!: (value: { data: string; error: null }) => void
+    mocks.getSupabaseClient.mockResolvedValue({
+      rpc: vi.fn(() => new Promise((resolve) => (resolveRpc = resolve))),
+    })
+    await wrapper.setProps({ isVisible: false })
+    keyboardStore.metadata.name = 'changed'
+    await wrapper.setProps({ isVisible: true })
+    // Lets the chain (openForCurrentLayout -> confirm -> create -> client) run up to the
+    // held-open rpc() call, without resolving it.
+    await flushPromises()
+
+    // Still creating: the consent warning and its buttons must not flash while waiting.
+    expect(wrapper.text()).not.toContain('makes the design public')
+    expect(wrapper.find('[data-testid="short-link-confirm"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="short-link-cancel"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="short-link-url"]').exists()).toBe(false)
+
+    resolveRpc({ data: 'newLinkId1', error: null })
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="short-link-url"]').exists()).toBe(true)
+    const urlField = wrapper.find('[data-testid="short-link-url"]')
+    expect((urlField.element as HTMLInputElement).value).toContain('newLinkId1')
+  })
+
   it('does not persist the checkbox unless the user actually confirms', async () => {
     const wrapper = mount(ShortLinkConfirmModal, { props: { isVisible: false } })
 
