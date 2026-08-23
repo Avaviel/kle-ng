@@ -187,7 +187,7 @@ jobs:
         run: mkdir -p e2e/test-output
 
       - name: Run e2e tests
-        run: npx playwright test --project=${{ matrix.project }}
+        run: npx playwright test --project=${{ matrix.project }} --max-failures=1
         timeout-minutes: ${{ matrix.timeout }}
 
       - name: Upload Playwright HTML report
