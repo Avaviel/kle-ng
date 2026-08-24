@@ -72,6 +72,12 @@ textarea.form-control:focus {
   box-shadow: 0 0 0 2px var(--input-focus-border-color);
 }
 
+.form-control.is-invalid:focus,
+textarea.form-control.is-invalid:focus {
+  border-color: var(--bs-form-invalid-border-color, #dc3545);
+  box-shadow: 0 0 0 2px var(--bs-form-invalid-border-color, #dc3545);
+}
+
 .btn-sm {
   /* results with 20px line-height for font-size .875rem
   (when 16px root font) which changes default's 31px height to 30px,

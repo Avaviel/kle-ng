@@ -722,15 +722,6 @@ onUnmounted(() => {
   line-height: 1;
 }
 
-/* JSON validation styling */
-.is-invalid {
-  border-color: var(--bs-danger);
-}
-
-.is-invalid:focus {
-  box-shadow: 0 0 0 0.25rem var(--bs-danger-border-subtle);
-}
-
 .invalid-feedback {
   font-size: 0.65rem;
 }
