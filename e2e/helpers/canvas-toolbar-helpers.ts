@@ -53,7 +53,7 @@ export class CanvasToolbarHelper {
    * Get the move step input control locator.
    */
   getMoveStepInput(): Locator {
-    return this.page.locator('.move-step-control input[type="number"]')
+    return this.page.locator('.move-step-control .custom-number-input input')
   }
 
   /**

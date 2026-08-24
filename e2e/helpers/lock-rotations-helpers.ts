@@ -45,7 +45,7 @@ export class LockRotationsHelper {
     return this.page
       .locator('div')
       .filter({ hasText: /^X$/ })
-      .locator('input[type="number"]')
+      .locator('.custom-number-input input')
       .first()
   }
 
@@ -53,7 +53,7 @@ export class LockRotationsHelper {
     return this.page
       .locator('div')
       .filter({ hasText: /^Y$/ })
-      .locator('input[type="number"]')
+      .locator('.custom-number-input input')
       .first()
   }
 

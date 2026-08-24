@@ -89,7 +89,7 @@ describe('RotationControlModal', () => {
       props: defaultProps,
     })
 
-    const input = wrapper.find('input[type="number"]')
+    const input = wrapper.find('.custom-number-input input')
     await input.setValue('45')
     await input.trigger('input')
 
@@ -103,7 +103,7 @@ describe('RotationControlModal', () => {
     })
 
     // First set a non-zero angle
-    const input = wrapper.find('input[type="number"]')
+    const input = wrapper.find('.custom-number-input input')
     await input.setValue('90')
     await input.trigger('input')
 
@@ -129,7 +129,7 @@ describe('RotationControlModal', () => {
     })
 
     // Set an angle first
-    const input = wrapper.find('input[type="number"]')
+    const input = wrapper.find('.custom-number-input input')
     await input.setValue('45')
     await input.trigger('input')
 
@@ -219,7 +219,7 @@ describe('RotationControlModal', () => {
     })
 
     // Set angle to 360
-    const input = wrapper.find('input[type="number"]')
+    const input = wrapper.find('.custom-number-input input')
     await input.setValue('360')
     await input.trigger('input')
 
@@ -253,5 +253,22 @@ describe('RotationControlModal', () => {
     const originInfo = wrapper.find('.rotation-info')
     // Should strip trailing zeros
     expect(originInfo.text()).toContain('Origin: (1.25, 0)')
+  })
+
+  it('falls back to 0, not the field minimum, when the angle is cleared or invalid', async () => {
+    const wrapper = mount(RotationControlModal, {
+      props: defaultProps,
+    })
+
+    const input = wrapper.find('.custom-number-input input')
+    expect(input.exists()).toBe(true)
+
+    ;(input.element as HTMLInputElement).value = 'abc'
+    await input.trigger('input')
+    await input.trigger('blur')
+
+    const events = wrapper.emitted('angleChange') as number[][]
+    // Should default to 0, not the field's min (-360)
+    expect(events[events.length - 1]).toEqual([0])
   })
 })

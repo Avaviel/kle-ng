@@ -161,6 +161,7 @@ const routingOptions = [
             id="diodePositionX"
             v-model="settings.diodePositionX"
             :step="0.1"
+            :value-on-clear="0"
             size="default"
             title="Diode horizontal offset in millimeters"
           >
@@ -173,6 +174,7 @@ const routingOptions = [
             id="diodePositionY"
             v-model="settings.diodePositionY"
             :step="0.1"
+            :value-on-clear="0"
             size="default"
             title="Diode vertical offset in millimeters"
           >

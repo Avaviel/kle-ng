@@ -62,6 +62,7 @@
                 v-model="manualX"
                 :disabled="useKeyCenters"
                 :step="0.25"
+                :value-on-clear="0"
                 title="X Position"
               />
             </div>
@@ -71,6 +72,7 @@
                 v-model="manualY"
                 :disabled="useKeyCenters"
                 :step="0.25"
+                :value-on-clear="0"
                 title="Y Position"
               />
             </div>

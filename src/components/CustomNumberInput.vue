@@ -18,7 +18,10 @@
       @blur="handleBlur"
       @keydown="handleKeydown"
       @keyup="handleKeyup"
-      type="number"
+      type="text"
+      inputmode="decimal"
+      autocomplete="off"
+      spellcheck="false"
       :step="step"
       :min="min"
       :max="max"
@@ -26,6 +29,7 @@
       :title="title"
       :placeholder="placeholder"
       :disabled="disabled"
+      :aria-invalid="isInvalid"
     />
     <div class="spinner-buttons">
       <button
@@ -161,10 +165,66 @@ const suffixRef = ref<HTMLDivElement>()
 const isActive = ref(false)
 const userInput = ref<string | null>(null)
 const hasUncommittedChanges = ref(false)
+const isInvalid = ref(false)
+
+// True only for the duration of the reactivity flush triggered by our own
+// update:modelValue emit, so the external-change watcher can tell "prop
+// changed because of our own emit echoing back through v-model" apart from a
+// genuine external change (undo, redo, selection swap, etc.). This must be
+// time-scoped rather than matched by value: a genuine external change that
+// happens to land on the same number as our last echo is otherwise
+// indistinguishable from the echo itself, and would be wrongly suppressed.
+let isOwnEmitEchoing = false
+
+// The last value actually committed (spinner/wheel/arrow release, Enter,
+// typed blur) — NOT props.modelValue, which live typing/wheel/arrow preview
+// continuously overwrites with uncommitted values before a commit lands, and
+// which some consumers mirror back through a deep watcher on every @change.
+// This is what an invalid typed value reverts to on blur, so the revert
+// can't be corrupted by live-preview values that were never committed.
+let lastCommittedValue: number | undefined = props.modelValue
+
+// Value a deferred (wheel/arrow-hold) interaction will commit once it ends —
+// captured when it's set rather than read back from props.modelValue at
+// flush time, so an unrelated invalid-typing episode in between can't
+// clobber what gets committed.
+let pendingCommitValue: number | undefined = undefined
 
 const inputClass = computed(() => {
-  return props.class
+  return [props.class, { 'is-invalid': isInvalid.value }]
 })
+
+const emitModelValue = (value: number | undefined) => {
+  isOwnEmitEchoing = true
+  emit('update:modelValue', value)
+  nextTick(() => {
+    isOwnEmitEchoing = false
+  })
+}
+
+// Emit a commit and record it as the new last-committed value baseline.
+const emitCommit = (value: number | undefined) => {
+  const validated = validateValue(value)
+  lastCommittedValue = validated
+  emit('commit', validated)
+}
+
+// Out of range is only meaningful for non-wrap-around fields — wrap-around
+// fields (e.g. rotation angle) never have an "invalid" range.
+const isOutOfRange = (value: number): boolean => {
+  if (props.wrapAround) return false
+  if (props.min !== undefined && value < props.min) return true
+  if (props.max !== undefined && value > props.max) return true
+  return false
+}
+
+// Strict numeric parse: unlike parseFloat, this rejects strings with trailing
+// garbage (e.g. "5x") instead of silently returning the valid numeric prefix —
+// needed now that the input is a plain text field and can contain anything.
+const parseNumericInput = (value: string): number => {
+  const n = Number(value)
+  return Number.isFinite(n) ? n : NaN
+}
 
 // Get the value to use when input is cleared
 const getValueOnClear = (): number | undefined => {
@@ -179,6 +239,16 @@ const getValueOnClear = (): number | undefined => {
   }
 
   return props.step || 1
+}
+
+// Value to preview while the field holds invalid/out-of-range text. Prefers
+// value-on-clear (explicit consumer intent), then referenceValue — the "what
+// this field effectively means when unset" value (e.g. a per-key override
+// field whose reference is the shared default it would otherwise fall back
+// to) — before resorting to min/0, so an invalid override doesn't render as
+// an arbitrary boundary value instead of the actual default it represents.
+const getInvalidFallback = (): number => {
+  return getValueOnClear() ?? props.referenceValue ?? props.min ?? 0
 }
 
 // Display value shows user input while typing, or formatted model value otherwise
@@ -215,37 +285,34 @@ const updateSuffixWidth = async () => {
   }
 }
 
-// Relaxed input handling during typing - track user input and provide immediate feedback
+// Live input handling during typing - emits update:modelValue AND change on every
+// keystroke so live preview tracks typing exactly like spinner/wheel interactions.
+// Invalid or out-of-range text is never wiped from the field while the user is
+// still typing — it stays visible with an is-invalid indicator, and any live
+// preview falls back to the field's default (value-on-clear/min) value instead.
 const handleInput = (event: Event) => {
   const target = event.target as HTMLInputElement
   userInput.value = target.value
 
-  // Provide immediate feedback for valid numbers, but don't validate constraints
-  // This maintains reactivity while preventing focus loss during typing
-  if (target.value === '') {
-    // For empty values, immediately apply value-on-clear logic if configured
+  if (target.value.trim() === '') {
+    isInvalid.value = false
     const clearValue = getValueOnClear()
     if (clearValue !== undefined) {
-      emit('update:modelValue', clearValue)
+      setValidatedValue(clearValue)
     }
     return
   }
 
-  const numValue = parseFloat(target.value)
-  if (!isNaN(numValue)) {
-    // Emit the raw number without constraint validation
-    // Constraint validation happens on blur/change
-    emit('update:modelValue', numValue)
-  } else {
-    // For invalid input, apply value-on-clear logic immediately
-    // This handles cases like programmatically set invalid values
-    const clearValue = getValueOnClear()
-    if (clearValue !== undefined) {
-      emit('update:modelValue', clearValue)
-      // Clear the userInput to prevent display issues
-      userInput.value = null
-    }
+  const numValue = parseNumericInput(target.value.trim())
+
+  if (isNaN(numValue) || isOutOfRange(numValue)) {
+    isInvalid.value = true
+    setValidatedValue(getInvalidFallback())
+    return
   }
+
+  isInvalid.value = false
+  setValidatedValue(numValue)
 }
 
 // Strict validation on change/blur — emits both change and commit (typed input is always a discrete action)
@@ -258,22 +325,31 @@ const handleInputChange = () => {
   if (inputValue === '') {
     const clearValue = getValueOnClear()
     setValidatedValue(clearValue)
-    emit('commit', validateValue(clearValue))
+    emitCommit(clearValue)
     userInput.value = null
+    isInvalid.value = false
     return
   }
 
   // Parse and validate the number
-  const numValue = parseFloat(inputValue)
-  if (isNaN(numValue)) {
-    // Invalid input - revert to current model value
+  const numValue = parseNumericInput(inputValue)
+  if (isNaN(numValue) || isOutOfRange(numValue)) {
+    // Invalid or out-of-range input - discard and revert to the last committed
+    // value (NOT props.modelValue, which live typing has been overwriting with
+    // the invalid-preview fallback on every keystroke). Re-emit update:modelValue
+    // + change so any ref/state a v-model or one-way binding drove to that
+    // fallback while typing snaps back to the true value. No new commit is
+    // needed since this restores exactly the last-committed state.
+    isInvalid.value = false
     userInput.value = null
+    setValidatedValue(lastCommittedValue)
     return
   }
 
   setValidatedValue(numValue)
-  emit('commit', validateValue(numValue))
+  emitCommit(numValue)
   userInput.value = null
+  isInvalid.value = false
 }
 
 const handleFocus = () => {
@@ -337,7 +413,7 @@ const validateValue = (value: number | undefined): number | undefined => {
 // Set a validated value and emit both update:modelValue and change (for live preview)
 const setValidatedValue = (value: number | undefined) => {
   const validatedValue = validateValue(value)
-  emit('update:modelValue', validatedValue)
+  emitModelValue(validatedValue)
   emit('change', validatedValue)
 }
 
@@ -345,13 +421,20 @@ const setValidatedValue = (value: number | undefined) => {
 const flushCommit = () => {
   if (hasUncommittedChanges.value) {
     hasUncommittedChanges.value = false
-    emit('commit', validateValue(props.modelValue))
+    emitCommit(pendingCommitValue)
+    pendingCommitValue = undefined
   }
 }
 
 const handleKeydown = (event: KeyboardEvent) => {
   if (event.key === 'Escape') {
     inputRef.value?.blur()
+  } else if (event.key === 'Enter') {
+    // Commit explicitly rather than relying on the browser's native change-on-Enter
+    // timing, and stay focused/selected so the user can keep editing quickly.
+    event.preventDefault()
+    handleInputChange()
+    inputRef.value?.select()
   } else if (event.key === 'ArrowUp') {
     event.preventDefault()
     adjustValue(1, undefined, true)
@@ -373,15 +456,17 @@ const adjustValue = (delta: number, stepSize?: number, deferCommit = false) => {
   const currentValue = props.modelValue ?? props.referenceValue ?? 0
   const newValue = D.add(currentValue, D.mul(delta, actualStep))
 
-  // Clear user input since we're setting a programmatic value
+  // Clear user input/invalid state since we're setting a programmatic, valid value
   userInput.value = null
+  isInvalid.value = false
 
   setValidatedValue(newValue)
 
   if (deferCommit) {
     hasUncommittedChanges.value = true
+    pendingCommitValue = validateValue(newValue)
   } else {
-    emit('commit', validateValue(newValue))
+    emitCommit(newValue)
   }
 }
 
@@ -435,14 +520,19 @@ onBeforeUnmount(() => {
   flushCommit()
 })
 
-// Clear user input when model value changes externally
+// Clear user input when model value changes externally (undo/redo, selection
+// change, etc.) — but not when the change is just our own emit echoing back
+// through v-model, which would otherwise clobber active typing.
 watch(
   () => props.modelValue,
   (newValue, oldValue) => {
-    // Only clear user input if the change came from outside (not from our own input)
-    if (userInput.value === null && newValue !== oldValue) {
-      nextTick(updateSuffixWidth)
+    if (newValue === oldValue) return
+    if (!isOwnEmitEchoing) {
+      userInput.value = null
+      isInvalid.value = false
+      lastCommittedValue = newValue
     }
+    nextTick(updateSuffixWidth)
   },
   { flush: 'post' },
 )
@@ -451,6 +541,7 @@ watch(
 watch([() => props.disabled, () => props.min, () => props.max], () => {
   if (userInput.value !== null) {
     userInput.value = null
+    isInvalid.value = false
   }
 })
 </script>
@@ -464,19 +555,6 @@ watch([() => props.disabled, () => props.min, () => props.max], () => {
 
 .custom-number-input input {
   width: 100%;
-  /* Hide native spinners */
-  -webkit-appearance: none;
-  -moz-appearance: textfield;
-}
-
-.custom-number-input input::-webkit-outer-spin-button,
-.custom-number-input input::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-
-.custom-number-input input::-moz-spinner {
-  display: none;
 }
 
 .input-suffix {
@@ -565,6 +643,20 @@ watch([() => props.disabled, () => props.min, () => props.max], () => {
   border-radius: var(--bs-border-radius);
 }
 
+/* Bootstrap's .is-invalid draws a warning icon at the input's own right edge
+   — exactly where our custom spinner buttons (and, if present, the suffix
+   box) are absolutely positioned on top, so it would otherwise render
+   hidden underneath them. Push the icon (and the padding that makes room
+   for it) further left by however much of the right edge those overlays
+   occupy, so it lands in the clear space just to their left instead. Uses
+   fixed px offsets sized to our own fixed-size spinner/icon dimensions
+   rather than Bootstrap's em-based defaults, which assume no other
+   right-side decoration and are too generous for the compact size. */
+.custom-number-input.size-default input.is-invalid {
+  padding-right: calc(54px + var(--suffix-width, 0px));
+  background-position: right calc(34px + var(--suffix-width, 0px)) center;
+}
+
 .custom-number-input.size-default .spinner-buttons {
   width: 30px !important;
   height: 32px !important;
@@ -589,6 +681,12 @@ watch([() => props.disabled, () => props.min, () => props.max], () => {
   font-size: 0.7rem;
   box-sizing: border-box;
   border-radius: var(--bs-border-radius-sm);
+}
+
+.custom-number-input.size-compact input.is-invalid {
+  padding-right: calc(38px + var(--suffix-width, 0px));
+  background-position: right calc(21px + var(--suffix-width, 0px)) center;
+  background-size: 12px 12px;
 }
 
 .custom-number-input.size-compact .spinner-buttons {

@@ -45,14 +45,14 @@ export class MoveExactlyToolHelper {
    * Get the X movement input field
    */
   getXInput(): Locator {
-    return this.page.locator('.movement-inputs input[type="number"]').first()
+    return this.page.locator('.movement-inputs .custom-number-input input').first()
   }
 
   /**
    * Get the Y movement input field
    */
   getYInput(): Locator {
-    return this.page.locator('.movement-inputs input[type="number"]').nth(1)
+    return this.page.locator('.movement-inputs .custom-number-input input').nth(1)
   }
 
   /**
@@ -87,14 +87,14 @@ export class MoveExactlyToolHelper {
    * Get the X spacing input (mm mode only)
    */
   getXSpacingInput(): Locator {
-    return this.page.locator('.spacing-config input[type="number"]').first()
+    return this.page.locator('.spacing-config .custom-number-input input').first()
   }
 
   /**
    * Get the Y spacing input (mm mode only)
    */
   getYSpacingInput(): Locator {
-    return this.page.locator('.spacing-config input[type="number"]').nth(1)
+    return this.page.locator('.spacing-config .custom-number-input input').nth(1)
   }
 
   /**

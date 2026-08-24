@@ -502,30 +502,40 @@ test.describe('Canvas Toolbar', () => {
 
   test.describe('Error Handling and Edge Cases', () => {
     test('should handle invalid move step values gracefully', async () => {
+      // Out-of-range/invalid input is discarded on blur and reverts to the
+      // field's last committed value rather than being clamped to min/max.
       const stepInput = toolbarHelper.getMoveStepInput()
 
-      // Test value below minimum (0.05)
+      // Test value below minimum (0.05) - discarded, reverts to default (0.25)
       await stepInput.fill('0.01')
       await stepInput.blur()
-      await expect(stepInput).toHaveValue('0.05')
+      await expect(stepInput).toHaveValue('0.25')
 
-      // Test value above maximum (5.0)
+      // Test value above maximum (5.0) - discarded, reverts to default (0.25)
       await stepInput.fill('10')
       await stepInput.blur()
-      await expect(stepInput).toHaveValue('5')
+      await expect(stepInput).toHaveValue('0.25')
 
-      // Test negative value
+      // Test negative value - discarded, reverts to default (0.25)
       await stepInput.fill('-1')
       await stepInput.blur()
-      await expect(stepInput).toHaveValue('0.05')
+      await expect(stepInput).toHaveValue('0.25')
 
-      // Test empty string by clearing the field
+      // Test empty string by clearing the field - an explicit clear action,
+      // commits to the field's default value (0.25)
       await stepInput.clear()
       await stepInput.blur()
       await expect(stepInput).toHaveValue('0.25')
 
       // Test valid value to ensure normal operation still works
       await stepInput.fill('1.5')
+      await stepInput.blur()
+      await expect(stepInput).toHaveValue('1.5')
+
+      // Invalid input now reverts to the latest committed value (1.5), not
+      // the original default - confirms the revert tracks committed state,
+      // not just the value the field mounted with.
+      await stepInput.fill('100')
       await stepInput.blur()
       await expect(stepInput).toHaveValue('1.5')
     })

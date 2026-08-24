@@ -40,6 +40,7 @@
                         :step="moveStep"
                         :min="-100"
                         :max="100"
+                        :value-on-clear="0"
                         title="X Position"
                       />
                     </div>
@@ -52,6 +53,7 @@
                         :step="moveStep"
                         :min="-100"
                         :max="100"
+                        :value-on-clear="0"
                         title="Y Position"
                       />
                     </div>
@@ -71,6 +73,7 @@
                         :step="0.25"
                         :min="0.25"
                         :max="24"
+                        :value-on-clear="1"
                         title="Width"
                       />
                     </div>
@@ -83,6 +86,7 @@
                         :step="0.25"
                         :min="0.25"
                         :max="24"
+                        :value-on-clear="1"
                         title="Height"
                         :disabled="isRotaryEncoder"
                       />
@@ -124,6 +128,7 @@
                         :step="moveStep"
                         :min="0"
                         :max="36"
+                        :value-on-clear="0"
                         title="X Position"
                       />
                     </div>
@@ -136,6 +141,7 @@
                         :step="moveStep"
                         :min="0"
                         :max="36"
+                        :value-on-clear="0"
                         title="Y Position"
                       />
                     </div>
@@ -148,6 +154,7 @@
                         :step="moveStep"
                         :min="0"
                         :max="36"
+                        :value-on-clear="0"
                         title="Secondary X Position"
                       />
                     </div>
@@ -160,6 +167,7 @@
                         :step="moveStep"
                         :min="0"
                         :max="36"
+                        :value-on-clear="0"
                         title="Secondary Y Position"
                       />
                     </div>
@@ -179,6 +187,7 @@
                         :step="0.25"
                         :min="0.25"
                         :max="24"
+                        :value-on-clear="1"
                         title="Width"
                       />
                     </div>
@@ -191,6 +200,7 @@
                         :step="0.25"
                         :min="0.25"
                         :max="24"
+                        :value-on-clear="1"
                         title="Height"
                         :disabled="isRotaryEncoder"
                       />
@@ -204,6 +214,7 @@
                         :step="0.25"
                         :min="0.25"
                         :max="24"
+                        :value-on-clear="1"
                         title="Secondary Width"
                       />
                     </div>
@@ -216,6 +227,7 @@
                         :step="0.25"
                         :min="0.25"
                         :max="24"
+                        :value-on-clear="1"
                         title="Secondary Height"
                         :disabled="isRotaryEncoder"
                       />
@@ -237,6 +249,7 @@
                   :wrap-around="true"
                   :wrap-min="-360"
                   :wrap-max="360"
+                  :value-on-clear="0"
                   class="form-control form-control-sm mb-1"
                   title="Rotation Angle in Degrees"
                 >
@@ -278,6 +291,7 @@
                       @change="updateRotationX"
                       @commit="keyboardStore.saveState()"
                       :step="moveStep"
+                      :value-on-clear="0"
                       :title="
                         isRelativeRotationMode
                           ? 'Rotation Origin X (relative to key)'
@@ -294,6 +308,7 @@
                       @change="updateRotationY"
                       @commit="keyboardStore.saveState()"
                       :step="moveStep"
+                      :value-on-clear="0"
                       :title="
                         isRelativeRotationMode
                           ? 'Rotation Origin Y (relative to key)'
@@ -571,9 +586,13 @@
                     />
                     <input
                       v-model="currentColor"
+                      @input="updateColorPreview"
                       @change="updateColor"
+                      @keydown.enter.prevent="handleColorEnter"
                       type="text"
                       class="form-control form-control-sm"
+                      :class="{ 'is-invalid': isKeyColorInvalid }"
+                      :aria-invalid="isKeyColorInvalid"
                       style="font-size: 0.65rem"
                       title="Key Color"
                     />
@@ -593,9 +612,13 @@
                     />
                     <input
                       v-model="currentTextColor"
+                      @input="updateTextColorPreview"
                       @change="updateTextColor"
+                      @keydown.enter.prevent="handleTextColorEnter"
                       type="text"
                       class="form-control form-control-sm"
+                      :class="{ 'is-invalid': isTextColorInvalid }"
+                      :aria-invalid="isTextColorInvalid"
                       style="font-size: 0.65rem"
                       title="Text Color"
                     />
@@ -621,6 +644,7 @@
                     :min="1"
                     :max="9"
                     :step="1"
+                    :value-on-clear="3"
                     title="Default text size for all labels"
                   />
                 </div>
@@ -1029,8 +1053,6 @@ loadRotationModePreference()
 const labels = ref<(string | undefined)[]>(Array(12).fill(undefined))
 const labelColors = ref<(string | undefined)[]>(Array(12).fill(undefined))
 const labelTextSizes = ref<(number | undefined)[]>(Array(12).fill(undefined))
-// Store the previous values to detect spinner usage
-const previousTextSizeValues = ref<(number | undefined)[]>(Array(9).fill(undefined))
 const currentWidth = ref(1)
 const currentHeight = ref(1)
 const currentWidth2 = ref(1)
@@ -1041,6 +1063,8 @@ const currentX2 = ref(0)
 const currentY2 = ref(0)
 const currentColor = ref('#cccccc')
 const currentTextColor = ref('#000000')
+const isKeyColorInvalid = ref(false)
+const isTextColorInvalid = ref(false)
 const currentDefaultTextSize = ref(3)
 const currentGhost = ref(false)
 const currentStepped = ref(false)
@@ -1128,10 +1152,10 @@ const updateCurrentValues = () => {
     currentY2.value = 0
     currentColor.value = '#cccccc'
     currentTextColor.value = '#000000'
+    isKeyColorInvalid.value = false
+    isTextColorInvalid.value = false
     currentDefaultTextSize.value = 3
     labelTextSizes.value = Array(12).fill(undefined)
-    // Initialize previous values for spinner detection
-    previousTextSizeValues.value = Array(9).fill(undefined)
     // Ensure all reactive values are properly initialized
     currentGhost.value = false
     currentStepped.value = false
@@ -1167,11 +1191,11 @@ const updateCurrentValues = () => {
     currentY2.value = formatNumber(firstKey.y2 || 0)
     currentColor.value = firstKey.color
     currentTextColor.value = firstKey.default.textColor
+    isKeyColorInvalid.value = false
+    isTextColorInvalid.value = false
     currentDefaultTextSize.value = firstKey.default.textSize
     // Map per-label text sizes - show only explicitly set values (0 means using default)
     labelTextSizes.value = firstKey.textSize.map((size: number) => (size <= 0 ? undefined : size))
-    // Initialize previous values for spinner detection
-    previousTextSizeValues.value = [...labelTextSizes.value.slice(0, 9)]
     currentGhost.value = !!firstKey.ghost
     currentStepped.value = !!firstKey.stepped
     currentNub.value = !!firstKey.nub
@@ -1199,11 +1223,11 @@ const updateCurrentValues = () => {
     currentY2.value = formatNumber(firstKey.y2 || 0)
     currentColor.value = firstKey.color
     currentTextColor.value = firstKey.default.textColor
+    isKeyColorInvalid.value = false
+    isTextColorInvalid.value = false
     currentDefaultTextSize.value = firstKey.default.textSize
     // Map per-label text sizes - show only explicitly set values (0 means using default)
     labelTextSizes.value = firstKey.textSize.map((size: number) => (size <= 0 ? undefined : size))
-    // Initialize previous values for spinner detection
-    previousTextSizeValues.value = [...labelTextSizes.value.slice(0, 9)]
     currentGhost.value = !!firstKey.ghost
     currentStepped.value = !!firstKey.stepped
     currentNub.value = !!firstKey.nub
@@ -1237,26 +1261,39 @@ const updateLabel = (index: number) => {
   keyboardStore.saveState()
 }
 
-// Live preview text color update (no state save)
+// Live preview text color update (no state save) — fires on every keystroke
 const updateTextColorPreview = () => {
   if (selectedKeys.value.length === 0) return
 
+  const colorValue = currentTextColor.value.trim()
+  if (!isValidHex(colorValue)) {
+    isTextColorInvalid.value = true
+    // Don't push invalid text into the key model — the rendered key keeps
+    // showing its last valid color instead of picking up garbage input.
+    return
+  }
+
+  isTextColorInvalid.value = false
+  const normalizedColor = normalizeHex(colorValue)
   selectedKeys.value.forEach((key) => {
-    key.default.textColor = currentTextColor.value
+    key.default.textColor = normalizedColor
   })
 }
 
+// Commit on blur or Enter — discards invalid input back to the key's actual color
 const updateTextColor = () => {
   if (selectedKeys.value.length === 0) return
 
-  // Validate the color before applying it
   const colorValue = currentTextColor.value.trim()
   if (!isValidHex(colorValue)) {
-    return // Don't apply invalid colors
+    isTextColorInvalid.value = false
+    currentTextColor.value = selectedKeys.value[0]?.default.textColor ?? '#000000'
+    return
   }
 
   const normalizedColor = normalizeHex(colorValue)
 
+  isTextColorInvalid.value = false
   selectedKeys.value.forEach((key) => {
     key.default.textColor = normalizedColor
   })
@@ -1270,9 +1307,15 @@ const updateTextColor = () => {
   keyboardStore.saveState()
 }
 
+// Enter commits without blurring, mirroring CustomNumberInput's Enter behavior
+const handleTextColorEnter = (event: KeyboardEvent) => {
+  updateTextColor()
+  ;(event.target as HTMLInputElement).select()
+}
+
 // Validation helper
 const validateTextSize = (value: string | number): number => {
-  const parsed = typeof value === 'number' ? value : parseInt(String(value))
+  const parsed = typeof value === 'number' ? Math.round(value) : parseInt(String(value))
   if (isNaN(parsed)) return 3 // default
   return Math.max(1, Math.min(9, parsed)) // clamp 1-9
 }
@@ -1384,26 +1427,39 @@ const updateHeight2 = () => {
   keyboardStore.notifyKeysModified()
 }
 
-// Live preview color update (no state save)
+// Live preview color update (no state save) — fires on every keystroke
 const updateColorPreview = () => {
   if (selectedKeys.value.length === 0) return
 
+  const colorValue = currentColor.value.trim()
+  if (!isValidHex(colorValue)) {
+    isKeyColorInvalid.value = true
+    // Don't push invalid text into the key model — the rendered key keeps
+    // showing its last valid color instead of picking up garbage input.
+    return
+  }
+
+  isKeyColorInvalid.value = false
+  const normalizedColor = normalizeHex(colorValue)
   selectedKeys.value.forEach((key) => {
-    key.color = currentColor.value
+    key.color = normalizedColor
   })
 }
 
+// Commit on blur or Enter — discards invalid input back to the key's actual color
 const updateColor = () => {
   if (selectedKeys.value.length === 0) return
 
-  // Validate the color before applying it
   const colorValue = currentColor.value.trim()
   if (!isValidHex(colorValue)) {
-    return // Don't apply invalid colors
+    isKeyColorInvalid.value = false
+    currentColor.value = selectedKeys.value[0]?.color ?? '#cccccc'
+    return
   }
 
   const normalizedColor = normalizeHex(colorValue)
 
+  isKeyColorInvalid.value = false
   selectedKeys.value.forEach((key) => {
     key.color = normalizedColor
   })
@@ -1415,6 +1471,12 @@ const updateColor = () => {
   recentlyUsedColorsManager.addColor(normalizedColor)
 
   keyboardStore.saveState()
+}
+
+// Enter commits without blurring, mirroring CustomNumberInput's Enter behavior
+const handleColorEnter = (event: KeyboardEvent) => {
+  updateColor()
+  ;(event.target as HTMLInputElement).select()
 }
 
 const updateGhost = () => {
@@ -1713,6 +1775,8 @@ const updateLabelTextSizeValue = (index: number, value: number | undefined) => {
       key.textSize[index] = validatedSize
     }
   })
+
+  keyboardStore.notifyKeysModified()
 }
 
 const updateDefaultTextSizeValue = (value: number | undefined) => {
@@ -1720,6 +1784,8 @@ const updateDefaultTextSizeValue = (value: number | undefined) => {
     selectedKeys.value.forEach((key) => {
       key.default.textSize = value
     })
+
+    keyboardStore.notifyKeysModified()
   }
 }
 </script>

@@ -1,7 +1,29 @@
 import { describe, it, expect, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
-import { nextTick } from 'vue'
+import { defineComponent, nextTick, ref } from 'vue'
 import CustomNumberInput from '../CustomNumberInput.vue'
+
+// Wraps CustomNumberInput in a real v-model binding (a plain ref, synced
+// synchronously on every update:modelValue, exactly like production consumers
+// such as KeyPropertiesPanel's `v-model="currentX"`). Tests that relay
+// update:modelValue back into props via a later `wrapper.setProps()` call
+// only approximate this — the round trip happens on a separate tick, so it
+// can't catch bugs that depend on the synchronous same-flush echo timing.
+function mountWithVModel(props: Record<string, unknown>) {
+  const wrapper = mount(
+    defineComponent({
+      components: { CustomNumberInput },
+      props: Object.keys(props),
+      setup() {
+        const value = ref(props.modelValue as number | undefined)
+        return { value }
+      },
+      template: `<CustomNumberInput v-bind="$props" v-model="value" @commit="$emit('commit', $event)" @change="$emit('change', $event)" />`,
+    }),
+    { props },
+  )
+  return wrapper
+}
 
 describe('CustomNumberInput', () => {
   describe('empty input handling', () => {
@@ -311,7 +333,7 @@ describe('CustomNumberInput', () => {
         props: { modelValue: 0 },
       })
 
-      expect(wrapper.find('input[type="number"]').exists()).toBe(true)
+      expect(wrapper.find('input[type="text"][inputmode="decimal"]').exists()).toBe(true)
       expect(wrapper.find('.spinner-buttons').exists()).toBe(true)
       expect(wrapper.find('.spinner-up').exists()).toBe(true)
       expect(wrapper.find('.spinner-down').exists()).toBe(true)
@@ -580,9 +602,24 @@ describe('CustomNumberInput', () => {
       })
 
       const input = wrapper.find('input')
-      expect(input.attributes('type')).toBe('number')
+      expect(input.attributes('type')).toBe('text')
+      expect(input.attributes('inputmode')).toBe('decimal')
       expect(input.attributes('title')).toBe('Test input')
       expect(input.attributes('placeholder')).toBe('Enter number')
+    })
+
+    it('marks aria-invalid when the field holds an invalid value', async () => {
+      const wrapper = mount(CustomNumberInput, {
+        props: { modelValue: 5, min: 1, max: 9 },
+      })
+
+      const input = wrapper.find('input')
+      expect(input.attributes('aria-invalid')).toBe('false')
+
+      ;(input.element as HTMLInputElement).value = '15'
+      await input.trigger('input')
+
+      expect(input.attributes('aria-invalid')).toBe('true')
     })
 
     it('has descriptive titles for spinner buttons', () => {
@@ -734,6 +771,300 @@ describe('CustomNumberInput', () => {
       await input.trigger('keyup', { key: 'ArrowDown' })
       expect(wrapper.emitted('commit')).toHaveLength(1)
       expect(wrapper.emitted('commit')![0]).toEqual([4])
+    })
+  })
+
+  describe('Live typing parity with spinner/wheel', () => {
+    // Note: these tests dispatch a raw 'input' event (setting element.value directly)
+    // rather than using wrapper.setValue(), which fires 'input' AND a native 'change'
+    // synchronously (for v-model.lazy support) — that would immediately commit and
+    // defeat the point of testing the "still typing" state in isolation.
+
+    it('emits change on every keystroke for a valid in-range value, without committing', async () => {
+      const wrapper = mount(CustomNumberInput, {
+        props: { modelValue: 5, min: 1, max: 9 },
+      })
+
+      const input = wrapper.find('input')
+      input.element.value = '7'
+      await input.trigger('input')
+
+      expect(wrapper.emitted('change')).toBeTruthy()
+      expect(wrapper.emitted('change')!.slice(-1)[0]).toEqual([7])
+      expect(input.classes()).not.toContain('is-invalid')
+      // Still typing — no commit yet
+      expect(wrapper.emitted('commit')).toBeFalsy()
+    })
+
+    it('marks the field invalid and keeps the typed text when a parseable value is out of range', async () => {
+      const wrapper = mount(CustomNumberInput, {
+        props: { modelValue: 5, min: 1, max: 9, valueOnClear: 3 },
+      })
+
+      const input = wrapper.find('input')
+      input.element.value = '15'
+      await input.trigger('input')
+
+      expect(input.element.value).toBe('15')
+      expect(input.classes()).toContain('is-invalid')
+
+      // Live preview falls back to the field's default value while invalid
+      expect(wrapper.emitted('change')!.slice(-1)[0]).toEqual([3])
+      expect(wrapper.emitted('commit')).toBeFalsy()
+    })
+
+    it('falls back to referenceValue (not min) while invalid, when no value-on-clear is set', async () => {
+      // Regression test: Per-Label Text Size fields have no valueOnClear (it's
+      // explicitly null, meaning "allow empty") but do set referenceValue to the
+      // shared Default Text Size (e.g. 3) — invalid input should preview as that
+      // default, not as the field's unrelated min (1).
+      const wrapper = mount(CustomNumberInput, {
+        props: {
+          modelValue: 5,
+          min: 1,
+          max: 9,
+          valueOnClear: null,
+          referenceValue: 3,
+        },
+      })
+
+      const input = wrapper.find('input')
+      input.element.value = '15'
+      await input.trigger('input')
+
+      expect(input.classes()).toContain('is-invalid')
+      expect(wrapper.emitted('change')!.slice(-1)[0]).toEqual([3])
+    })
+
+    it('keeps genuinely unparseable typed text visible and marks it invalid', async () => {
+      // The input is a plain type="text" field (not type="number") specifically so
+      // that garbled text like "abc" or a lone "-" is preserved and can be flagged,
+      // instead of being silently blanked by the browser before our code sees it.
+      const wrapper = mount(CustomNumberInput, {
+        props: { modelValue: 5, min: 1, max: 9, valueOnClear: 3 },
+      })
+
+      const input = wrapper.find('input')
+      input.element.value = 'abc'
+      await input.trigger('input')
+
+      expect(input.element.value).toBe('abc')
+      expect(input.classes()).toContain('is-invalid')
+      expect(input.attributes('aria-invalid')).toBe('true')
+      expect(wrapper.emitted('change')!.slice(-1)[0]).toEqual([3])
+      expect(wrapper.emitted('commit')).toBeFalsy()
+    })
+
+    it('rejects a numeric prefix followed by trailing garbage (strict parse, not parseFloat-style)', async () => {
+      // parseFloat("5x") === 5 — too lenient for a field that now accepts arbitrary
+      // text. The whole string must be a valid number.
+      const wrapper = mount(CustomNumberInput, {
+        props: { modelValue: 5, min: 1, max: 9, valueOnClear: 3 },
+      })
+
+      const input = wrapper.find('input')
+      input.element.value = '5x'
+      await input.trigger('input')
+
+      expect(input.classes()).toContain('is-invalid')
+      expect(wrapper.emitted('change')!.slice(-1)[0]).toEqual([3])
+    })
+
+    it('does not mark out-of-declared-range values invalid when wrapAround is enabled', async () => {
+      const wrapper = mount(CustomNumberInput, {
+        props: {
+          modelValue: 10,
+          min: -360,
+          max: 360,
+          wrapAround: true,
+          wrapMin: -360,
+          wrapMax: 360,
+        },
+      })
+
+      const input = wrapper.find('input')
+      input.element.value = '400'
+      await input.trigger('input')
+
+      expect(input.classes()).not.toContain('is-invalid')
+    })
+
+    it('commits a typed value on blur without pressing Enter, even with a one-way (non-v-model) binding', async () => {
+      // Mirrors the Per-Label Text Size wiring: one-way :model-value + explicit change
+      // handler + value-on-clear=null + reference-value — the reported regression case.
+      const wrapper = mount(CustomNumberInput, {
+        props: {
+          modelValue: undefined,
+          min: 1,
+          max: 9,
+          step: 1,
+          valueOnClear: null,
+          referenceValue: 3,
+        },
+      })
+
+      const input = wrapper.find('input')
+      input.element.value = '5'
+      await input.trigger('input')
+      await input.trigger('blur')
+
+      expect(wrapper.emitted('commit')).toBeTruthy()
+      const lastCommit = wrapper.emitted('commit')!.slice(-1)[0]
+      expect(lastCommit).toEqual([5])
+    })
+
+    it('discards an out-of-range typed value on blur and reverts to the last committed value', async () => {
+      const wrapper = mount(CustomNumberInput, {
+        props: { modelValue: 5, min: 1, max: 9 },
+      })
+
+      const input = wrapper.find('input')
+      input.element.value = '15'
+      await input.trigger('input')
+      await input.trigger('blur')
+
+      // No commit for the discarded invalid input
+      expect(wrapper.emitted('commit')).toBeFalsy()
+      // Display reverts to the last committed model value
+      expect(input.element.value).toBe('5')
+      expect(input.classes()).not.toContain('is-invalid')
+      // The final change reflects the reverted (true) value, not the invalid one
+      expect(wrapper.emitted('change')!.slice(-1)[0]).toEqual([5])
+    })
+
+    it('reverts to the true original value on invalid blur under a real v-model binding, not the live-preview fallback (undo regression)', async () => {
+      // Regression test for a bug where, with a real v-model consumer, live
+      // typing echoes the invalid-preview fallback back through the bound ref
+      // on every keystroke. By blur time, "the last value" as seen from
+      // props.modelValue was already that fallback, not the value before
+      // typing began, so reverting to props.modelValue silently replaced the
+      // original with the fallback and lost it for good. This can only be
+      // caught with a real (synchronous) v-model round trip — see
+      // mountWithVModel's comment for why a manual wrapper.setProps() relay
+      // doesn't reproduce the timing this bug depends on.
+      const wrapper = mountWithVModel({ modelValue: 5, min: 1, max: 9, valueOnClear: 3 })
+      const input = wrapper.find('input')
+
+      input.element.value = 'abc'
+      await input.trigger('input')
+
+      // Live preview has already echoed the fallback (3) back through v-model —
+      // this is the corrupted intermediate state the bug would settle on.
+      expect((wrapper.vm as unknown as { value: number }).value).toBe(3)
+      expect(input.classes()).toContain('is-invalid')
+
+      await input.trigger('blur')
+
+      expect((wrapper.vm as unknown as { value: number }).value).toBe(5)
+      expect(input.element.value).toBe('5')
+      expect(input.classes()).not.toContain('is-invalid')
+      // Nothing new was actually committed — the field just settled back to
+      // where it already was, so no phantom undo entry should be created.
+      expect(wrapper.emitted('commit')).toBeFalsy()
+    })
+
+    it('clears stale invalid text when an external change lands on the same value our own echo last used', async () => {
+      // Regression test: the external-change watcher used to distinguish "our
+      // own emit echoing back" from a genuine external change by comparing
+      // the new prop value against the last value we ever emitted — which
+      // stays frozen at that number indefinitely. A later, unrelated external
+      // change (e.g. selecting a different key whose real value happens to
+      // match) that lands on that same frozen number was then wrongly treated
+      // as our own echo forever, leaving stale typed text and invalid styling
+      // stuck on screen.
+      const wrapper = mount(CustomNumberInput, {
+        props: { modelValue: 5, min: 0, max: 100, valueOnClear: 0 },
+      })
+
+      const input = wrapper.find('input')
+      input.element.value = 'abc'
+      await input.trigger('input')
+
+      expect(input.classes()).toContain('is-invalid')
+      expect(input.element.value).toBe('abc')
+      // Our own echo of the invalid-preview fallback (0) — recorded internally,
+      // even though this test (unlike a real v-model consumer) never relays it
+      // back into modelValue.
+      expect(wrapper.emitted('update:modelValue')!.slice(-1)[0]).toEqual([0])
+
+      // A later, genuinely separate external change sets modelValue to that
+      // same number (0) — e.g. selecting a different key whose real value is
+      // also 0. This must be recognized as external and clear the stale
+      // state, not mistaken for our own long-past echo.
+      await wrapper.setProps({ modelValue: 0 })
+
+      expect(input.classes()).not.toContain('is-invalid')
+      expect(input.element.value).toBe('0')
+    })
+
+    it('clears is-invalid when a spinner click recovers from invalid typed text', async () => {
+      // Regression test: adjustValue() (spinner clicks, mouse wheel, arrow
+      // keys) cleared the stale typed text but never reset isInvalid, so the
+      // field kept its red "is-invalid" styling even after being set to a
+      // valid value through one of those controls.
+      const wrapper = mount(CustomNumberInput, {
+        props: { modelValue: 5, min: 1, max: 9 },
+      })
+
+      const input = wrapper.find('input')
+      input.element.value = '15'
+      await input.trigger('input')
+      expect(input.classes()).toContain('is-invalid')
+
+      await wrapper.find('.spinner-down').trigger('click')
+
+      expect(input.classes()).not.toContain('is-invalid')
+      expect(input.attributes('aria-invalid')).toBe('false')
+    })
+
+    it('clears is-invalid when the wheel recovers from invalid typed text', async () => {
+      const wrapper = mount(CustomNumberInput, {
+        props: { modelValue: 5, min: 1, max: 9 },
+      })
+
+      const input = wrapper.find('input')
+      await input.trigger('focus')
+      input.element.value = '15'
+      await input.trigger('input')
+      expect(input.classes()).toContain('is-invalid')
+
+      await input.trigger('wheel', { deltaY: 100 })
+
+      expect(input.classes()).not.toContain('is-invalid')
+    })
+
+    it('clears is-invalid when an arrow key recovers from invalid typed text', async () => {
+      const wrapper = mount(CustomNumberInput, {
+        props: { modelValue: 5, min: 1, max: 9 },
+      })
+
+      const input = wrapper.find('input')
+      input.element.value = '15'
+      await input.trigger('input')
+      expect(input.classes()).toContain('is-invalid')
+
+      await input.trigger('keydown', { key: 'ArrowDown' })
+
+      expect(input.classes()).not.toContain('is-invalid')
+    })
+
+    it('commits on Enter without blurring, and keeps the field focused', async () => {
+      const wrapper = mount(CustomNumberInput, {
+        props: { modelValue: 5, min: 1, max: 9 },
+      })
+
+      const input = wrapper.find('input')
+      await input.trigger('focus')
+      input.element.value = '7'
+      await input.trigger('input')
+      expect(wrapper.emitted('commit')).toBeFalsy()
+
+      await input.trigger('keydown', { key: 'Enter' })
+
+      expect(wrapper.emitted('commit')).toBeTruthy()
+      expect(wrapper.emitted('commit')!.slice(-1)[0]).toEqual([7])
+      // Enter must not blur the field
+      expect(wrapper.classes()).toContain('input-focused')
     })
   })
 

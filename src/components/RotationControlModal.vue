@@ -52,7 +52,6 @@
             <CustomNumberInput
               ref="angleInputRef"
               :model-value="currentAngle"
-              @update:modelValue="updateAngle"
               @change="updateAngle"
               :step="1"
               :ctrl-step="5"
@@ -61,6 +60,7 @@
               :wrap-around="true"
               :wrap-min="-360"
               :wrap-max="360"
+              :value-on-clear="0"
               :disabled="!rotationOrigin"
             >
               <template #suffix>degrees</template>
@@ -201,7 +201,7 @@ watch(
 
       // Auto-focus and select the angle input for better UX
       const angleInput = document.querySelector(
-        '.rotation-panel input[type="number"]',
+        '.rotation-panel .custom-number-input input',
       ) as HTMLInputElement
       if (angleInput) {
         angleInput.focus()

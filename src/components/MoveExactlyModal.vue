@@ -58,11 +58,11 @@
               <label class="form-label small mb-1">X Spacing:</label>
               <CustomNumberInput
                 :model-value="uSpacing.x"
-                @update:modelValue="updateUSpacingX"
                 @change="updateUSpacingX"
                 :step="0.05"
                 :min="10"
                 :max="30"
+                :value-on-clear="19.05"
               >
                 <template #suffix>mm/U</template>
               </CustomNumberInput>
@@ -71,11 +71,11 @@
               <label class="form-label small mb-1">Y Spacing:</label>
               <CustomNumberInput
                 :model-value="uSpacing.y"
-                @update:modelValue="updateUSpacingY"
                 @change="updateUSpacingY"
                 :step="0.05"
                 :min="10"
                 :max="30"
+                :value-on-clear="19.05"
               >
                 <template #suffix>mm/U</template>
               </CustomNumberInput>
@@ -91,7 +91,6 @@
               <label class="form-label small mb-1">X Movement:</label>
               <CustomNumberInput
                 :model-value="movementX"
-                @update:modelValue="updateMovementX"
                 @change="updateMovementX"
                 :step="0.1"
                 :value-on-clear="0"
@@ -103,7 +102,6 @@
               <label class="form-label small mb-1">Y Movement:</label>
               <CustomNumberInput
                 :model-value="movementY"
-                @update:modelValue="updateMovementY"
                 @change="updateMovementY"
                 :step="0.1"
                 :value-on-clear="0"
@@ -217,7 +215,7 @@ watch(
 
       // Auto-focus the X input for better UX
       const xInput = document.querySelector(
-        '.move-exactly-panel input[type="number"]',
+        '.move-exactly-panel .custom-number-input input',
       ) as HTMLInputElement
       if (xInput) {
         xInput.focus()

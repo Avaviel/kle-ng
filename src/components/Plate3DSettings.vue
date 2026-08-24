@@ -27,6 +27,7 @@ const outlineEnabled = computed(() => settings.value.outline.outlineType !== 'no
           :step="0.1"
           :min="0.1"
           :max="20"
+          :value-on-clear="1.5"
           :disabled="!outlineEnabled"
           class="form-control form-control-sm"
           size="default"

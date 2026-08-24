@@ -66,6 +66,7 @@ function removeAllCustomHoles(): void {
               v-model="settings.mountingHoles.diameter"
               :step="0.5"
               :min="0.5"
+              :value-on-clear="3"
               :disabled="
                 settings.outline.outlineType !== 'rectangular' || !settings.mountingHoles.enabled
               "
@@ -85,6 +86,7 @@ function removeAllCustomHoles(): void {
               v-model="settings.mountingHoles.edgeDistance"
               :step="0.5"
               :min="0.5"
+              :value-on-clear="3"
               :disabled="
                 settings.outline.outlineType !== 'rectangular' || !settings.mountingHoles.enabled
               "
@@ -151,6 +153,7 @@ function removeAllCustomHoles(): void {
                 v-model="hole.diameter"
                 :step="0.5"
                 :min="0.5"
+                :value-on-clear="3"
                 :disabled="!settings.customHoles.enabled"
                 class="form-control form-control-sm"
                 size="compact"
@@ -164,6 +167,7 @@ function removeAllCustomHoles(): void {
               <CustomNumberInput
                 v-model="hole.offsetX"
                 :step="0.25"
+                :value-on-clear="0"
                 :disabled="!settings.customHoles.enabled"
                 class="form-control form-control-sm"
                 size="compact"
@@ -177,6 +181,7 @@ function removeAllCustomHoles(): void {
               <CustomNumberInput
                 v-model="hole.offsetY"
                 :step="0.25"
+                :value-on-clear="0"
                 :disabled="!settings.customHoles.enabled"
                 class="form-control form-control-sm"
                 size="compact"

@@ -24,7 +24,7 @@ export class RotationToolComponent {
   constructor(private readonly page: Page) {
     this.toolButton = page.getByTestId('toolbar-rotate-selection')
     this.modal = page.locator('.rotation-panel')
-    this.angleInput = page.locator('.rotation-panel input[type="number"]')
+    this.angleInput = page.locator('.rotation-panel .custom-number-input input')
     this.applyButton = page.locator('.rotation-panel .btn-primary')
     this.cancelButton = page.locator('.rotation-panel .btn-secondary')
     this.rotationInfo = page.locator('.rotation-info')

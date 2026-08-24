@@ -720,6 +720,309 @@ describe('KeyPropertiesPanel', () => {
     })
   })
 
+  describe('Per-Label Text Size', () => {
+    it('commits a typed value into an empty field on blur without pressing Enter', async () => {
+      // Regression test: this field is bound one-way (:model-value, not v-model) with
+      // value-on-clear=null and reference-value set — the exact wiring reported broken.
+      const key = new Key()
+      store.keys = [key]
+      store.selectedKeys = [key]
+
+      const wrapper = mount(KeyPropertiesPanel, {
+        global: { plugins: [pinia] },
+      })
+      await wrapper.vm.$nextTick()
+
+      const saveStateSpy = vi.spyOn(store, 'saveState')
+
+      const input = wrapper.find('input[title^="Text size for Top Left"]')
+      expect(input.exists()).toBe(true)
+
+      ;(input.element as HTMLInputElement).value = '5'
+      await input.trigger('input')
+      await input.trigger('blur')
+      await wrapper.vm.$nextTick()
+
+      expect(key.textSize[0]).toBe(5)
+      expect(saveStateSpy).toHaveBeenCalledTimes(1)
+    })
+
+    it('previews the shared Default Text Size (not the field min) while the typed value is invalid', async () => {
+      // Regression test: an invalid per-label value must render as the actual
+      // default (key.default.textSize, normally 3) — not the field's unrelated
+      // min of 1, which is just the lower bound of the allowed range.
+      const key = new Key()
+      store.keys = [key]
+      store.selectedKeys = [key]
+
+      const wrapper = mount(KeyPropertiesPanel, {
+        global: { plugins: [pinia] },
+      })
+      await wrapper.vm.$nextTick()
+
+      expect(key.default.textSize).toBe(3)
+
+      const input = wrapper.find('input[title^="Text size for Top Left"]')
+      expect(input.exists()).toBe(true)
+
+      ;(input.element as HTMLInputElement).value = '15' // out of range (max is 9)
+      await input.trigger('input')
+      await wrapper.vm.$nextTick()
+
+      expect(key.textSize[0]).toBe(3)
+    })
+  })
+
+  describe('Position field invalid/clear default', () => {
+    it('falls back to 0, not the field minimum, when X is cleared', async () => {
+      const key = new Key()
+      key.x = 5
+      store.keys = [key]
+      store.selectedKeys = [key]
+
+      const wrapper = mount(KeyPropertiesPanel, {
+        global: { plugins: [pinia] },
+      })
+      await wrapper.vm.$nextTick()
+
+      const input = wrapper.find('input[title="X Position"]')
+      expect(input.exists()).toBe(true)
+
+      ;(input.element as HTMLInputElement).value = ''
+      await input.trigger('input')
+      await input.trigger('blur')
+      await wrapper.vm.$nextTick()
+
+      // Should default to 0, not the field's min (-100)
+      expect(key.x).toBe(0)
+    })
+
+    it('falls back to 1, not the field minimum, when Width is cleared', async () => {
+      const key = new Key()
+      key.width = 2
+      store.keys = [key]
+      store.selectedKeys = [key]
+
+      const wrapper = mount(KeyPropertiesPanel, {
+        global: { plugins: [pinia] },
+      })
+      await wrapper.vm.$nextTick()
+
+      const input = wrapper.find('input[title="Width"]')
+      expect(input.exists()).toBe(true)
+
+      ;(input.element as HTMLInputElement).value = ''
+      await input.trigger('input')
+      await input.trigger('blur')
+      await wrapper.vm.$nextTick()
+
+      // Should default to 1 (a standard 1U key), not the field's min (0.25)
+      expect(key.width).toBe(1)
+    })
+
+    it('falls back to 3, not the field minimum, when Default Text Size is cleared', async () => {
+      const key = new Key()
+      key.default.textSize = 5
+      store.keys = [key]
+      store.selectedKeys = [key]
+
+      const wrapper = mount(KeyPropertiesPanel, {
+        global: { plugins: [pinia] },
+      })
+      await wrapper.vm.$nextTick()
+
+      const input = wrapper.find('input[title="Default text size for all labels"]')
+      expect(input.exists()).toBe(true)
+
+      ;(input.element as HTMLInputElement).value = ''
+      await input.trigger('input')
+      await input.trigger('blur')
+      await wrapper.vm.$nextTick()
+
+      // Should default to 3 (the key model's actual default text size), not the field's min (1)
+      expect(key.default.textSize).toBe(3)
+    })
+  })
+
+  describe('Position field invalid input reverts (undo regression)', () => {
+    // Regression coverage for a bug where typing invalid/out-of-range text into
+    // a v-model-bound numeric field permanently lost the original value: live
+    // typing echoes the field's fallback value back through v-model (and, for
+    // one-way-bound fields, through KeyPropertiesPanel's deep watcher on the
+    // key model), so by the time blur ran its revert-to-"last value" logic,
+    // that "last value" was already the fallback, not the value before typing
+    // began. The fix tracks the true last-committed value separately. These
+    // tests also assert saveState() is never called, since a discarded invalid
+    // edit that ends up back where it started must not create a phantom undo
+    // entry — this is the undo/invalid-input interaction the fix has to get
+    // right, not just the raw output value.
+    it('reverts X to its original value (not the invalid-preview fallback of 0) when typed text is invalid', async () => {
+      const key = new Key()
+      key.x = 5
+      store.keys = [key]
+      store.selectedKeys = [key]
+
+      const wrapper = mount(KeyPropertiesPanel, { global: { plugins: [pinia] } })
+      await wrapper.vm.$nextTick()
+
+      const saveStateSpy = vi.spyOn(store, 'saveState')
+
+      const input = wrapper.find('input[title="X Position"]')
+      ;(input.element as HTMLInputElement).value = 'abc'
+      await input.trigger('input')
+
+      // While still typing, the live preview already fell back to 0 — this is
+      // the corrupted intermediate state the old bug would settle on.
+      expect(key.x).toBe(0)
+
+      await input.trigger('blur')
+      await wrapper.vm.$nextTick()
+
+      expect(key.x).toBe(5)
+      expect((input.element as HTMLInputElement).value).toBe('5')
+      expect(input.classes()).not.toContain('is-invalid')
+      expect(saveStateSpy).not.toHaveBeenCalled()
+    })
+
+    it('reverts Width to its original value (not the invalid-preview fallback of 1) when typed text is out of range', async () => {
+      const key = new Key()
+      key.width = 2
+      store.keys = [key]
+      store.selectedKeys = [key]
+
+      const wrapper = mount(KeyPropertiesPanel, { global: { plugins: [pinia] } })
+      await wrapper.vm.$nextTick()
+
+      const saveStateSpy = vi.spyOn(store, 'saveState')
+
+      const input = wrapper.find('input[title="Width"]')
+      ;(input.element as HTMLInputElement).value = '999'
+      await input.trigger('input')
+
+      expect(key.width).toBe(1)
+
+      await input.trigger('blur')
+      await wrapper.vm.$nextTick()
+
+      expect(key.width).toBe(2)
+      expect(saveStateSpy).not.toHaveBeenCalled()
+    })
+
+    it('reverts Default Text Size to its original value (not the fallback of 3) when typed text is invalid, despite its one-way binding', async () => {
+      // This field uses :model-value (not v-model) — the deep watcher on the
+      // key model is what mirrors the live-typing fallback back into the field
+      // for this one, so it needs its own regression coverage distinct from
+      // the v-model-bound X/Width fields above.
+      const key = new Key()
+      key.default.textSize = 5
+      store.keys = [key]
+      store.selectedKeys = [key]
+
+      const wrapper = mount(KeyPropertiesPanel, { global: { plugins: [pinia] } })
+      await wrapper.vm.$nextTick()
+
+      const saveStateSpy = vi.spyOn(store, 'saveState')
+
+      const input = wrapper.find('input[title="Default text size for all labels"]')
+      ;(input.element as HTMLInputElement).value = 'abc'
+      await input.trigger('input')
+
+      expect(key.default.textSize).toBe(3)
+
+      await input.trigger('blur')
+      await wrapper.vm.$nextTick()
+
+      expect(key.default.textSize).toBe(5)
+      expect(saveStateSpy).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('Key Color / Text Color validation', () => {
+    it('does not push invalid text into the key model while typing, and flags the field invalid', async () => {
+      const key = new Key()
+      key.color = '#123456'
+      store.keys = [key]
+      store.selectedKeys = [key]
+
+      const wrapper = mount(KeyPropertiesPanel, { global: { plugins: [pinia] } })
+      await wrapper.vm.$nextTick()
+
+      const input = wrapper.find('input[title="Key Color"]')
+      expect(input.exists()).toBe(true)
+
+      ;(input.element as HTMLInputElement).value = 'zzz'
+      await input.trigger('input')
+      await wrapper.vm.$nextTick()
+
+      // Invalid text must not corrupt the rendered key's color
+      expect(key.color).toBe('#123456')
+      expect(input.classes()).toContain('is-invalid')
+      expect(input.attributes('aria-invalid')).toBe('true')
+    })
+
+    it('updates the key color live while typing a valid hex value, before blur', async () => {
+      const key = new Key()
+      key.color = '#123456'
+      store.keys = [key]
+      store.selectedKeys = [key]
+
+      const wrapper = mount(KeyPropertiesPanel, { global: { plugins: [pinia] } })
+      await wrapper.vm.$nextTick()
+
+      const input = wrapper.find('input[title="Key Color"]')
+      ;(input.element as HTMLInputElement).value = '#abcdef'
+      await input.trigger('input')
+      await wrapper.vm.$nextTick()
+
+      expect(key.color).toBe('#abcdef')
+      expect(input.classes()).not.toContain('is-invalid')
+    })
+
+    it("discards an invalid typed color on commit, reverting the field to the key's actual color", async () => {
+      const key = new Key()
+      key.color = '#123456'
+      store.keys = [key]
+      store.selectedKeys = [key]
+
+      const wrapper = mount(KeyPropertiesPanel, { global: { plugins: [pinia] } })
+      await wrapper.vm.$nextTick()
+
+      const saveStateSpy = vi.spyOn(store, 'saveState')
+
+      const input = wrapper.find('input[title="Key Color"]')
+      ;(input.element as HTMLInputElement).value = 'zzz'
+      await input.trigger('input')
+      // Native text inputs fire 'change' on blur when the value has changed
+      await input.trigger('change')
+      await wrapper.vm.$nextTick()
+
+      expect(key.color).toBe('#123456')
+      expect((input.element as HTMLInputElement).value).toBe('#123456')
+      expect(input.classes()).not.toContain('is-invalid')
+      expect(saveStateSpy).not.toHaveBeenCalled()
+    })
+
+    it('commits a valid typed text color on blur without pressing Enter', async () => {
+      const key = new Key()
+      store.keys = [key]
+      store.selectedKeys = [key]
+
+      const wrapper = mount(KeyPropertiesPanel, { global: { plugins: [pinia] } })
+      await wrapper.vm.$nextTick()
+
+      const saveStateSpy = vi.spyOn(store, 'saveState')
+
+      const input = wrapper.find('input[title="Text Color"]')
+      ;(input.element as HTMLInputElement).value = '#ff00ff'
+      await input.trigger('input')
+      await input.trigger('change')
+      await wrapper.vm.$nextTick()
+
+      expect(key.default.textColor).toBe('#ff00ff')
+      expect(saveStateSpy).toHaveBeenCalledTimes(1)
+    })
+  })
+
   describe('layout preview mode disabling', () => {
     it('fieldset is disabled in preview mode even when keys are selected', async () => {
       store.addKey()
