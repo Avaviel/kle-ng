@@ -124,10 +124,28 @@
                 ref="editorContainer"
                 class="cm-editor-container"
               ></div>
+              <button
+                class="expand-editor-btn"
+                title="Expand editor"
+                type="button"
+                @click="isExpandModalOpen = true"
+              >
+                <BiArrowsFullscreen aria-hidden="true" />
+              </button>
             </div>
             <div v-if="jsonError" class="alert alert-danger py-1 px-2 mt-1 mb-0 small" role="alert">
               {{ jsonError }}
             </div>
+
+            <Teleport to="body">
+              <JsonExpandModal
+                v-if="isExpandModalOpen"
+                title="Theme JSON"
+                :initial-value="jsonText"
+                @close="isExpandModalOpen = false"
+                @apply="applyExpandModal"
+              />
+            </Teleport>
           </div>
 
           <!-- Section C: Apply Button -->
@@ -263,12 +281,14 @@ import { lightenColor, invertLightenColor } from '@/utils/color-utils'
 import { getCodeMirror } from '@/utils/codemirror-loader'
 import type { EditorView } from '@codemirror/view'
 import ColorPicker from './ColorPicker.vue'
+import JsonExpandModal from './JsonExpandModal.vue'
 
 import BiGripVertical from 'bootstrap-icons/icons/grip-vertical.svg'
 import BiPalette from 'bootstrap-icons/icons/palette.svg'
 import BiQuestionCircle from 'bootstrap-icons/icons/question-circle.svg'
 import BiUpload from 'bootstrap-icons/icons/upload.svg'
 import BiDownload from 'bootstrap-icons/icons/download.svg'
+import BiArrowsFullscreen from 'bootstrap-icons/icons/arrows-fullscreen.svg'
 
 // Props
 interface Props {
@@ -298,6 +318,7 @@ const loadError = ref<string | null>(null)
 // JSON editor state
 const jsonText = ref<string>('')
 const jsonError = ref<string | null>(null)
+const isExpandModalOpen = ref(false)
 
 // CodeMirror
 const editorContainer = ref<HTMLDivElement>()
@@ -381,6 +402,23 @@ const handleJsonInput = (content = jsonText.value) => {
   } catch (err) {
     jsonError.value = err instanceof Error ? err.message : 'Invalid JSON'
   }
+}
+
+const applyExpandModal = (value: string) => {
+  jsonText.value = value
+  if (editorView) {
+    getCodeMirror()
+      .then((cm) => {
+        if (editorView) {
+          suppressOnChange = true
+          cm.updateContent(editorView, value)
+          suppressOnChange = false
+        }
+      })
+      .catch(() => {})
+  }
+  handleJsonInput(value)
+  isExpandModalOpen.value = false
 }
 
 function makeOnChange() {
@@ -492,9 +530,15 @@ const handleCalcTopChange = (color: string) => {
   )
 }
 
-// Keyboard shortcut: Escape to close
+// Keyboard shortcut: Escape to close.
+//
+// Skipped while the expand modal is open, so Escape dismisses only the modal.
+// The inline editor is shielded by `@keydown.stop` on `.json-editor-wrapper`,
+// but `JsonExpandModal` is `Teleport`ed to `<body>` — outside that wrapper — so
+// its Escape reaches this document listener too. Without the guard, closing the
+// modal would also unmount the whole panel and discard the editor's contents.
 const handleKeydown = (event: KeyboardEvent) => {
-  if (event.key === 'Escape' && props.visible) {
+  if (event.key === 'Escape' && props.visible && !isExpandModalOpen.value) {
     handleClose()
   }
 }
@@ -667,6 +711,7 @@ onUnmounted(() => {
 
 /* JSON editor */
 .json-editor-wrapper {
+  position: relative;
   border: 1px solid var(--bs-border-color);
   border-radius: 4px;
   overflow: hidden;
@@ -675,6 +720,32 @@ onUnmounted(() => {
 
 .json-editor-wrapper--error {
   border-color: var(--bs-danger);
+}
+
+.expand-editor-btn {
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bs-secondary-bg);
+  border: 1px solid var(--bs-border-color);
+  border-radius: 3px;
+  opacity: 0.4;
+  cursor: pointer;
+  padding: 2px;
+  font-size: 0.65rem;
+  color: var(--bs-secondary-color);
+  z-index: 2;
+  transition: opacity 0.15s;
+}
+
+.expand-editor-btn:hover {
+  opacity: 1;
+  color: var(--bs-body-color);
 }
 
 .editor-placeholder {
