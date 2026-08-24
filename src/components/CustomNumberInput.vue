@@ -363,24 +363,31 @@ const validateValue = (value: number | undefined): number | undefined => {
     const min = props.wrapMin || -360
     const max = props.wrapMax || 360
 
-    // Special handling for rotation values: wrap to 0 when doing full circles
+    // Modulo-based wrap: correct for arbitrarily large/small inputs in O(1).
+    // A loop that subtracts/adds the range per iteration (the previous
+    // approach) would spin for an unbounded number of iterations — and
+    // freeze the page — on a typed value like 1e20.
+    let lo: number
+    let hi: number
     if (Math.abs(max - min) >= 360) {
       // For full circle ranges like -360 to 360, normalize to -180 to 180
       // This ensures values wrap around 0 properly
-      while (newValue > 180) {
-        newValue -= 360
-      }
-      while (newValue < -180) {
-        newValue += 360
-      }
+      lo = -180
+      hi = 180
     } else {
       // Standard wrap-around logic for smaller ranges
-      if (newValue > max) {
-        newValue = min + (newValue - max)
-      } else if (newValue < min) {
-        newValue = max - (min - newValue)
-      }
+      lo = min
+      hi = max
     }
+
+    // The interval is closed at both ends. Modulo alone lands in [lo, hi), which
+    // would rewrite a typed 180 to -180 and make 180 unreachable by stepping up
+    // from 165. Only values congruent to the boundary hit this, and for those the
+    // end the user was heading towards is the one to keep — matching the loop
+    // this replaced.
+    const range = hi - lo
+    const wrapped = ((((newValue - lo) % range) + range) % range) + lo
+    newValue = wrapped === lo && newValue >= hi ? hi : wrapped
   } else {
     // Apply min/max constraints for non-wrapping values
     if (props.min !== undefined && newValue < props.min) {

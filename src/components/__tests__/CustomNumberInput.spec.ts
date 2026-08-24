@@ -888,6 +888,69 @@ describe('CustomNumberInput', () => {
       expect(input.classes()).not.toContain('is-invalid')
     })
 
+    it('normalizes an extremely large typed value into wrap range without hanging', async () => {
+      // Regression test: the old wrap-around normalization used a while loop that
+      // subtracted/added the range one step at a time, so a huge typed value (e.g.
+      // 1e20) would iterate ~2.8e17 times and freeze the page. Normalization must
+      // be O(1) regardless of magnitude.
+      const wrapper = mount(CustomNumberInput, {
+        props: {
+          modelValue: 10,
+          min: -360,
+          max: 360,
+          wrapAround: true,
+          wrapMin: -360,
+          wrapMax: 360,
+        },
+      })
+
+      const input = wrapper.find('input')
+      input.element.value = '1e20'
+      await input.trigger('input')
+
+      const emitted = wrapper.emitted('update:modelValue') as [number | undefined][]
+      const lastValue = emitted.slice(-1)[0]![0]
+      expect(lastValue).toBeDefined()
+      expect(lastValue as number).toBeGreaterThanOrEqual(-180)
+      expect(lastValue as number).toBeLessThanOrEqual(180)
+    })
+
+    it('keeps the wrap range closed at both ends, so 180 survives', async () => {
+      // Regression test: plain modulo lands in the half-open [-180, 180), turning a
+      // typed 180 into -180 and making 180 unreachable by stepping up from 165. The
+      // rendering is the same either way, but silently rewriting the number the user
+      // typed is not. Only values congruent to the boundary are affected, and they
+      // keep the end they were heading towards.
+      const cases: [string, number][] = [
+        ['180', 180],
+        ['-180', -180],
+        ['540', 180], // 180 + one full turn
+        ['-540', -180],
+        ['181', -179], // just past the boundary still wraps
+        ['-181', 179],
+      ]
+
+      for (const [typed, expected] of cases) {
+        const wrapper = mount(CustomNumberInput, {
+          props: {
+            modelValue: 0,
+            min: -360,
+            max: 360,
+            wrapAround: true,
+            wrapMin: -360,
+            wrapMax: 360,
+          },
+        })
+
+        const input = wrapper.find('input')
+        input.element.value = typed
+        await input.trigger('input')
+
+        const emitted = wrapper.emitted('update:modelValue') as [number | undefined][]
+        expect(emitted.slice(-1)[0]![0], `typed ${typed}`).toBe(expected)
+      }
+    })
+
     it('commits a typed value on blur without pressing Enter, even with a one-way (non-v-model) binding', async () => {
       // Mirrors the Per-Label Text Size wiring: one-way :model-value + explicit change
       // handler + value-on-clear=null + reference-value — the reported regression case.
