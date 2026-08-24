@@ -167,27 +167,18 @@ const userInput = ref<string | null>(null)
 const hasUncommittedChanges = ref(false)
 const isInvalid = ref(false)
 
-// True only for the duration of the reactivity flush triggered by our own
-// update:modelValue emit, so the external-change watcher can tell "prop
-// changed because of our own emit echoing back through v-model" apart from a
-// genuine external change (undo, redo, selection swap, etc.). This must be
-// time-scoped rather than matched by value: a genuine external change that
-// happens to land on the same number as our last echo is otherwise
-// indistinguishable from the echo itself, and would be wrongly suppressed.
+// True during our own update:modelValue flush, so the watcher below can spot
+// its own echo. Time-scoped, not value-scoped: a genuine external change can
+// coincidentally match our last echoed value.
 let isOwnEmitEchoing = false
 
-// The last value actually committed (spinner/wheel/arrow release, Enter,
-// typed blur) — NOT props.modelValue, which live typing/wheel/arrow preview
-// continuously overwrites with uncommitted values before a commit lands, and
-// which some consumers mirror back through a deep watcher on every @change.
-// This is what an invalid typed value reverts to on blur, so the revert
-// can't be corrupted by live-preview values that were never committed.
+// Last value actually committed — distinct from props.modelValue, which live
+// typing/wheel/arrow preview overwrites before a commit lands. Invalid input
+// reverts to this on blur.
 let lastCommittedValue: number | undefined = props.modelValue
 
-// Value a deferred (wheel/arrow-hold) interaction will commit once it ends —
-// captured when it's set rather than read back from props.modelValue at
-// flush time, so an unrelated invalid-typing episode in between can't
-// clobber what gets committed.
+// Value a deferred wheel/arrow-hold commit will use, captured at set time so
+// unrelated typing before flush can't change it.
 let pendingCommitValue: number | undefined = undefined
 
 const inputClass = computed(() => {
@@ -241,14 +232,11 @@ const getValueOnClear = (): number | undefined => {
   return props.step || 1
 }
 
-// Value to preview while the field holds invalid/out-of-range text. Prefers
-// value-on-clear (explicit consumer intent), then referenceValue — the "what
-// this field effectively means when unset" value (e.g. a per-key override
-// field whose reference is the shared default it would otherwise fall back
-// to) — before resorting to min/0, so an invalid override doesn't render as
-// an arbitrary boundary value instead of the actual default it represents.
+// Live-preview value while invalid: the last committed value, so invalid
+// text doesn't visibly change anything. Falls back to value-on-clear, then
+// referenceValue, then min/0, only when nothing has been committed yet.
 const getInvalidFallback = (): number => {
-  return getValueOnClear() ?? props.referenceValue ?? props.min ?? 0
+  return lastCommittedValue ?? getValueOnClear() ?? props.referenceValue ?? props.min ?? 0
 }
 
 // Display value shows user input while typing, or formatted model value otherwise
@@ -334,12 +322,8 @@ const handleInputChange = () => {
   // Parse and validate the number
   const numValue = parseNumericInput(inputValue)
   if (isNaN(numValue) || isOutOfRange(numValue)) {
-    // Invalid or out-of-range input - discard and revert to the last committed
-    // value (NOT props.modelValue, which live typing has been overwriting with
-    // the invalid-preview fallback on every keystroke). Re-emit update:modelValue
-    // + change so any ref/state a v-model or one-way binding drove to that
-    // fallback while typing snaps back to the true value. No new commit is
-    // needed since this restores exactly the last-committed state.
+    // Discard and revert to the last committed value, not props.modelValue.
+    // No new commit needed — this restores exactly the last-committed state.
     isInvalid.value = false
     userInput.value = null
     setValidatedValue(lastCommittedValue)

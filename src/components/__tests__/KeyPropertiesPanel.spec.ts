@@ -845,18 +845,10 @@ describe('KeyPropertiesPanel', () => {
   })
 
   describe('Position field invalid input reverts (undo regression)', () => {
-    // Regression coverage for a bug where typing invalid/out-of-range text into
-    // a v-model-bound numeric field permanently lost the original value: live
-    // typing echoes the field's fallback value back through v-model (and, for
-    // one-way-bound fields, through KeyPropertiesPanel's deep watcher on the
-    // key model), so by the time blur ran its revert-to-"last value" logic,
-    // that "last value" was already the fallback, not the value before typing
-    // began. The fix tracks the true last-committed value separately. These
-    // tests also assert saveState() is never called, since a discarded invalid
-    // edit that ends up back where it started must not create a phantom undo
-    // entry — this is the undo/invalid-input interaction the fix has to get
-    // right, not just the raw output value.
-    it('reverts X to its original value (not the invalid-preview fallback of 0) when typed text is invalid', async () => {
+    // Invalid/out-of-range text must never touch the key model — the field
+    // stays flagged but the live value doesn't change — and saveState() must
+    // not fire for a discarded edit that never actually changed anything.
+    it('keeps X at its original value throughout typing invalid text, and reverts cleanly on blur', async () => {
       const key = new Key()
       key.x = 5
       store.keys = [key]
@@ -871,9 +863,8 @@ describe('KeyPropertiesPanel', () => {
       ;(input.element as HTMLInputElement).value = 'abc'
       await input.trigger('input')
 
-      // While still typing, the live preview already fell back to 0 — this is
-      // the corrupted intermediate state the old bug would settle on.
-      expect(key.x).toBe(0)
+      expect(key.x).toBe(5)
+      expect(input.classes()).toContain('is-invalid')
 
       await input.trigger('blur')
       await wrapper.vm.$nextTick()
@@ -884,7 +875,7 @@ describe('KeyPropertiesPanel', () => {
       expect(saveStateSpy).not.toHaveBeenCalled()
     })
 
-    it('reverts Width to its original value (not the invalid-preview fallback of 1) when typed text is out of range', async () => {
+    it('keeps Width at its original value throughout typing an out-of-range value, and reverts cleanly on blur', async () => {
       const key = new Key()
       key.width = 2
       store.keys = [key]
@@ -899,7 +890,7 @@ describe('KeyPropertiesPanel', () => {
       ;(input.element as HTMLInputElement).value = '999'
       await input.trigger('input')
 
-      expect(key.width).toBe(1)
+      expect(key.width).toBe(2)
 
       await input.trigger('blur')
       await wrapper.vm.$nextTick()
@@ -908,11 +899,8 @@ describe('KeyPropertiesPanel', () => {
       expect(saveStateSpy).not.toHaveBeenCalled()
     })
 
-    it('reverts Default Text Size to its original value (not the fallback of 3) when typed text is invalid, despite its one-way binding', async () => {
-      // This field uses :model-value (not v-model) — the deep watcher on the
-      // key model is what mirrors the live-typing fallback back into the field
-      // for this one, so it needs its own regression coverage distinct from
-      // the v-model-bound X/Width fields above.
+    it('keeps Default Text Size at its original value throughout typing invalid text, despite its one-way binding, and reverts cleanly on blur', async () => {
+      // Uses :model-value, not v-model — distinct code path from X/Width above.
       const key = new Key()
       key.default.textSize = 5
       store.keys = [key]
@@ -927,7 +915,7 @@ describe('KeyPropertiesPanel', () => {
       ;(input.element as HTMLInputElement).value = 'abc'
       await input.trigger('input')
 
-      expect(key.default.textSize).toBe(3)
+      expect(key.default.textSize).toBe(5)
 
       await input.trigger('blur')
       await wrapper.vm.$nextTick()
