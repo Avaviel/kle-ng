@@ -25,6 +25,10 @@ export default defineConfigWithVueTs(
     // third-party TypeScript, not ours to lint.
     'supabase/.temp/**',
     'supabase/.branches/**',
+    // Playwright e2e run output (traces, screenshots, HTML report) - generated
+    // artifacts, not source.
+    'test-results/**',
+    'playwright-report/**',
   ]),
 
   pluginVue.configs['flat/essential'],
