@@ -20,6 +20,7 @@ import PcbSettingsModal from './components/PcbSettingsModal.vue'
 import ToastContainer from './components/ToastContainer.vue'
 import AccountMenu from './components/AccountMenu.vue'
 import GitHubStarPopup from './components/GitHubStarPopup.vue'
+import TouchWarningBanner from './components/TouchWarningBanner.vue'
 import { useKeyboardStore } from '@/stores/keyboard'
 import { useAuthStore } from '@/stores/auth'
 import { useLayoutsStore } from '@/stores/layouts'
@@ -422,6 +423,9 @@ const isLayoutEditorSettingsOpen = ref(false)
       incomplete or broken. For the stable editor go to
       <a :href="PRODUCTION_URL">editor.keyboard-tools.xyz</a>.
     </div>
+
+    <!-- Touch/mobile visitors: many editing gestures are mouse/keyboard-only -->
+    <TouchWarningBanner />
 
     <!-- Main Container -->
     <main class="flex-grow-1" role="main" aria-label="Keyboard layout editor workspace">
