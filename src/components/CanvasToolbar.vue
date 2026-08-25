@@ -101,6 +101,9 @@
     @apply="handleMatrixApply"
     @cancel="handleMatrixCancel"
   />
+
+  <!-- Sanitize Tool Panel -->
+  <SanitizeToolPanel :visible="showSanitizeToolPanel" @close="showSanitizeToolPanel = false" />
 </template>
 
 <script setup lang="ts">
@@ -111,6 +114,7 @@ import LegendToolsPanel from './LegendToolsPanel.vue'
 import RotationOriginsPanel from './RotationOriginsPanel.vue'
 import ThemeToolsPanel from './ThemeToolsPanel.vue'
 import MatrixCoordinatesModal from './MatrixCoordinatesModal.vue'
+import SanitizeToolPanel from './SanitizeToolPanel.vue'
 import ToolbarEditSection from './ToolbarEditSection.vue'
 import ToolbarToolsSection from './ToolbarToolsSection.vue'
 import ToolbarHistorySection from './ToolbarHistorySection.vue'
@@ -129,6 +133,9 @@ const showRotationOriginsPanel = ref(false)
 
 // Theme tools panel
 const showThemeToolsPanel = ref(false)
+
+// Sanitize tool panel
+const showSanitizeToolPanel = ref(false)
 
 // Matrix coordinates modal
 const showMatrixModal = ref(false)
@@ -188,6 +195,15 @@ const extraTools = computed((): ExtraTool[] => {
       disabled: isPreview,
       action: () => {
         showThemeToolsPanel.value = true
+      },
+    },
+    {
+      id: 'sanitize-layout',
+      name: 'Sanitize Layout',
+      description: 'Find and clean up redundant JSON properties and layout offsets',
+      disabled: isPreview,
+      action: () => {
+        showSanitizeToolPanel.value = true
       },
     },
   ]

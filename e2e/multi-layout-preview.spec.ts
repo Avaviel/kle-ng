@@ -181,12 +181,13 @@ test.describe('Alternative Layouts Preview', () => {
       await editor.expectKeyCount(MULTILAYOUT_KEY_COUNT)
     })
 
-    test('should disable all four Extra Tools menu items in preview mode', async () => {
+    test('should disable every Extra Tools menu item in preview mode', async () => {
       await extraTools.openDropdown()
       await extraTools.expectToolDisabled('Legend Tools')
       await extraTools.expectToolDisabled('Add Switch Matrix Coordinates')
       await extraTools.expectToolDisabled('Move Rotation Origins')
       await extraTools.expectToolDisabled('Theme Tools')
+      await extraTools.expectToolDisabled('Sanitize Layout')
     })
 
     test('should not delete keys when Delete is pressed in preview mode', async ({ page }) => {

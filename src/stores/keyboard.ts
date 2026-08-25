@@ -36,6 +36,7 @@ import {
   calculateMirrorAxis as calculateMirrorAxisUtil,
   type MirrorAxis,
 } from '../utils/keyboard-transformations'
+import { applySanitizeFixes } from '../utils/sanitize'
 import { useFontStore } from './font'
 import { usePlateGeneratorStore } from './plateGenerator'
 import { svgCache } from '../utils/caches/SVGCache'
@@ -1094,6 +1095,29 @@ export const useKeyboardStore = defineStore('keyboard', () => {
     }
   }
 
+  /**
+   * Applies the named sanitize rules to the whole layout as a single undoable batch.
+   *
+   * Mutate first, then `saveState()` — the same order `addKey`, `deleteKeys` and
+   * `moveRotationOriginsToPosition` use, and the order the history model requires:
+   * `saveState()` records the *current* state as the newest entry, and `undo()`
+   * steps back to the entry before it (`canUndo` is `historyIndex > 0`). Saving
+   * before the mutation leaves the top entry holding the pre-mutation state, so
+   * the first undo appears to work but the second skips a whole step.
+   *
+   * The ordering also puts the notifications in the right place for free:
+   * `saveState()` ends with `notifyKeysModified()` and `requestRegenerate()`, so
+   * running it after the mutation means the canvas recomputes its bounds and the
+   * plate preview regenerates against the new coordinates. That matters here in a
+   * way it doesn't for the legend tools, whose edits never move a key.
+   */
+  const applySanitize = (ruleIds: readonly string[]) => {
+    if (ruleIds.length === 0) return
+
+    applySanitizeFixes(keys.value, ruleIds)
+    saveState()
+  }
+
   // URL Sharing functionality
   const generateShareUrl = (): string => {
     const keyboard = new Keyboard()
@@ -1669,6 +1693,9 @@ export const useKeyboardStore = defineStore('keyboard', () => {
     cancelRotation,
     transformRotationOrigin,
     moveRotationOriginsToPosition,
+
+    // Sanitize
+    applySanitize,
 
     // Movement functions
     moveSelectedKeys,
