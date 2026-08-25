@@ -118,12 +118,13 @@ Create mirrored copies of selected keys with the **Mirror Tool**. Choose a mirro
 
 ## Extra Tools {#extra-tools}
 
-Extra tools are grouped under a single button in the left toolbar. There are four:
+Extra tools are grouped under a single button in the left toolbar. There are five:
 
 1. **Legend Tools** — bulk legend editing
 2. **Add Switch Matrix Coordinates** — assign VIA-style row/column labels
 3. **Move Rotation Origins** — recalculate key positions with a new rotation reference point
 4. **Theme Tools** — apply color themes to the layout
+5. **Sanitize Layout** — find and clean up redundant JSON properties and layout offsets
 
 ### Legend Tools
 
@@ -203,6 +204,23 @@ Themes are defined as JSON objects with named rules and matcher expressions that
 The panel also includes a **Color Calculator** for converting between stored KLE keycap colors and the rendered key-top colors.
 
 See [Color Themes](./color-themes) for the full theme format, matcher syntax reference, and examples.
+
+### Sanitize Layout
+
+The **Sanitize Layout** tool scans the layout for redundant data and non-normalized values, and lets you clean them up in bulk. Open it from **Extra Tools → Sanitize Layout**.
+
+Scanning happens automatically when the panel opens, and issues are grouped into two categories:
+
+| Category           | Description                                                                                                                                                                                    |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Redundant data** | Properties left over on keys that no longer need them — for example, a font size or text color set on a label that is now blank, or a rotation origin still stored on a key that isn't rotated |
+| **Normalization**  | Values that are valid but not in their canonical form — for example, a layout that doesn't start at (0,0), or rotation angles outside the -180..180 range                                      |
+
+Each rule shows a count of how many keys or properties it would affect. Rules with a count of zero are disabled — there's nothing to fix. Uncheck any rule you want to skip, then click **Apply Fixes** to clean up only the checked rules. Use **Rescan** to re-scan the layout after making changes without closing the panel.
+
+::: tip
+Applying fixes creates a single undo step, so <kbd>Ctrl</kbd>+<kbd>Z</kbd> reverts everything the tool changed at once.
+:::
 
 ## Label Search {#label-search}
 
