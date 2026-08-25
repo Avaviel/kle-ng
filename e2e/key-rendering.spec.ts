@@ -1,4 +1,6 @@
 import { test, expect } from '@playwright/test'
+import { promises as fs } from 'fs'
+import path from 'path'
 import { CanvasTestHelper } from './helpers/canvas-test-helpers'
 import { WaitHelpers } from './helpers/wait-helpers'
 
@@ -16,6 +18,24 @@ test.describe('Key Rendering Tests', () => {
   test.beforeEach(async ({ page }) => {
     helper = new CanvasTestHelper(page)
     waitHelpers = new WaitHelpers(page)
+
+    // Serve the remote test image from the byte-identical file in `public/`.
+    //
+    // The URL — and therefore the cross-origin code path — is preserved; only the
+    // bytes are served locally, so they are deterministic and instant.
+    //
+    // The `Access-Control-Allow-Origin` header is what a real cross-origin image
+    // server has to send for an `anonymous` request, and is kept so the stub
+    // stays a faithful stand-in.
+    await page.route('**raw.githubusercontent.com/**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'image/png',
+        headers: { 'Access-Control-Allow-Origin': '*' },
+        body: await fs.readFile(path.join(process.cwd(), 'public/data/icons/test.png')),
+      })
+    })
+
     await page.goto('/')
     await helper.clearLayout()
   })
