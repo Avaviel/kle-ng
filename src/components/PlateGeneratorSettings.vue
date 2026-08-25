@@ -144,6 +144,14 @@ const customHeightInputClass = computed(() =>
             >
               <template #suffix>mm</template>
             </CustomNumberInput>
+            <div class="field-error">
+              <span
+                class="field-error-text"
+                :class="{ 'is-visible': customWidthError }"
+                :title="customWidthError || undefined"
+                >{{ customWidthError }}</span
+              >
+            </div>
           </div>
           <div class="flex-grow-1">
             <label for="customCutoutHeight" class="form-label form-label-sm fillet-sub-label"
@@ -162,13 +170,15 @@ const customHeightInputClass = computed(() =>
             >
               <template #suffix>mm</template>
             </CustomNumberInput>
+            <div class="field-error">
+              <span
+                class="field-error-text"
+                :class="{ 'is-visible': customHeightError }"
+                :title="customHeightError || undefined"
+                >{{ customHeightError }}</span
+              >
+            </div>
           </div>
-        </div>
-        <div v-if="customWidthError" class="invalid-feedback d-block">
-          {{ customWidthError }}
-        </div>
-        <div v-if="customHeightError" class="invalid-feedback d-block">
-          {{ customHeightError }}
         </div>
       </div>
 
@@ -238,6 +248,14 @@ const customHeightInputClass = computed(() =>
             >
               <template #suffix>mm</template>
             </CustomNumberInput>
+            <div class="field-error">
+              <span
+                class="field-error-text"
+                :class="{ 'is-visible': filletError }"
+                :title="filletError || undefined"
+                >{{ filletError }}</span
+              >
+            </div>
           </div>
           <div class="flex-grow-1">
             <label for="stabilizerFilletRadius" class="form-label form-label-sm fillet-sub-label"
@@ -256,13 +274,15 @@ const customHeightInputClass = computed(() =>
             >
               <template #suffix>mm</template>
             </CustomNumberInput>
+            <div class="field-error">
+              <span
+                class="field-error-text"
+                :class="{ 'is-visible': stabilizerFilletError }"
+                :title="stabilizerFilletError || undefined"
+                >{{ stabilizerFilletError }}</span
+              >
+            </div>
           </div>
-        </div>
-        <div v-if="filletError" class="invalid-feedback d-block">
-          {{ filletError }}
-        </div>
-        <div v-if="stabilizerFilletError" class="invalid-feedback d-block">
-          {{ stabilizerFilletError }}
         </div>
       </div>
 
@@ -324,6 +344,41 @@ const customHeightInputClass = computed(() =>
   font-weight: 400;
   font-size: 0.8rem;
   margin-bottom: 0.1rem;
+}
+
+/* Two-column rows (Width/Height, Switch/Stabilizer fillet): CustomNumberInput
+   grows its input's padding-right when invalid (to make room for the
+   validation icon), which otherwise inflates that column's flex-basis and
+   steals width from its sibling. min-width: 0 lets the column stay pinned to
+   its equal flex-grow share instead of expanding to fit that content. */
+.d-flex.gap-2 > .flex-grow-1 {
+  min-width: 0;
+  flex-basis: 0;
+}
+
+/* Reserve space for the error line so it doesn't shift layout when it
+   appears/disappears. The message itself is taken out of normal flow
+   (position: absolute) so its unwrapped text never contributes to this
+   column's intrinsic width and forces the row/panel to widen. */
+.field-error {
+  position: relative;
+  min-height: 1.2em;
+  margin-top: 0.25rem;
+}
+
+.field-error-text {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 0.875em;
+  color: var(--bs-form-invalid-color, #dc3545);
+  visibility: hidden;
+}
+
+.field-error-text.is-visible {
+  visibility: visible;
 }
 
 .help-btn {
