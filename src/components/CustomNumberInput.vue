@@ -31,6 +31,7 @@
       :disabled="disabled"
       :aria-invalid="isInvalid"
     />
+    <div v-if="isInvalid" class="invalid-icon-tooltip" :title="invalidMessage"></div>
     <div class="spinner-buttons">
       <button
         type="button"
@@ -165,7 +166,10 @@ const suffixRef = ref<HTMLDivElement>()
 const isActive = ref(false)
 const userInput = ref<string | null>(null)
 const hasUncommittedChanges = ref(false)
-const isInvalid = ref(false)
+// '' when valid; otherwise the reason, so the error icon's tooltip can
+// differentiate "not a number" from "out of range" instead of a generic message.
+const invalidReason = ref<'' | 'nan' | 'range'>('')
+const isInvalid = computed(() => invalidReason.value !== '')
 
 // True during our own update:modelValue flush, so the watcher below can spot
 // its own echo. Time-scoped, not value-scoped: a genuine external change can
@@ -183,6 +187,18 @@ let pendingCommitValue: number | undefined = undefined
 
 const inputClass = computed(() => {
   return [props.class, { 'is-invalid': isInvalid.value }]
+})
+
+const invalidMessage = computed(() => {
+  if (invalidReason.value === 'nan') return 'Not a valid number'
+  if (invalidReason.value === 'range') {
+    if (props.min !== undefined && props.max !== undefined) {
+      return `Value must be between ${props.min} and ${props.max}`
+    }
+    if (props.min !== undefined) return `Value must be at least ${props.min}`
+    if (props.max !== undefined) return `Value must be at most ${props.max}`
+  }
+  return ''
 })
 
 const emitModelValue = (value: number | undefined) => {
@@ -283,7 +299,7 @@ const handleInput = (event: Event) => {
   userInput.value = target.value
 
   if (target.value.trim() === '') {
-    isInvalid.value = false
+    invalidReason.value = ''
     const clearValue = getValueOnClear()
     if (clearValue !== undefined) {
       setValidatedValue(clearValue)
@@ -293,13 +309,19 @@ const handleInput = (event: Event) => {
 
   const numValue = parseNumericInput(target.value.trim())
 
-  if (isNaN(numValue) || isOutOfRange(numValue)) {
-    isInvalid.value = true
+  if (isNaN(numValue)) {
+    invalidReason.value = 'nan'
     setValidatedValue(getInvalidFallback())
     return
   }
 
-  isInvalid.value = false
+  if (isOutOfRange(numValue)) {
+    invalidReason.value = 'range'
+    setValidatedValue(getInvalidFallback())
+    return
+  }
+
+  invalidReason.value = ''
   setValidatedValue(numValue)
 }
 
@@ -315,7 +337,7 @@ const handleInputChange = () => {
     setValidatedValue(clearValue)
     emitCommit(clearValue)
     userInput.value = null
-    isInvalid.value = false
+    invalidReason.value = ''
     return
   }
 
@@ -324,7 +346,7 @@ const handleInputChange = () => {
   if (isNaN(numValue) || isOutOfRange(numValue)) {
     // Discard and revert to the last committed value, not props.modelValue.
     // No new commit needed — this restores exactly the last-committed state.
-    isInvalid.value = false
+    invalidReason.value = ''
     userInput.value = null
     setValidatedValue(lastCommittedValue)
     return
@@ -333,7 +355,7 @@ const handleInputChange = () => {
   setValidatedValue(numValue)
   emitCommit(numValue)
   userInput.value = null
-  isInvalid.value = false
+  invalidReason.value = ''
 }
 
 const handleFocus = () => {
@@ -449,7 +471,7 @@ const adjustValue = (delta: number, stepSize?: number, deferCommit = false) => {
 
   // Clear user input/invalid state since we're setting a programmatic, valid value
   userInput.value = null
-  isInvalid.value = false
+  invalidReason.value = ''
 
   setValidatedValue(newValue)
 
@@ -520,7 +542,7 @@ watch(
     if (newValue === oldValue) return
     if (!isOwnEmitEchoing) {
       userInput.value = null
-      isInvalid.value = false
+      invalidReason.value = ''
       lastCommittedValue = newValue
     }
     nextTick(updateSuffixWidth)
@@ -532,7 +554,7 @@ watch(
 watch([() => props.disabled, () => props.min, () => props.max], () => {
   if (userInput.value !== null) {
     userInput.value = null
-    isInvalid.value = false
+    invalidReason.value = ''
   }
 })
 </script>
@@ -567,6 +589,28 @@ watch([() => props.disabled, () => props.min, () => props.max], () => {
   height: 30px;
   line-height: 30px;
   padding: 0 6px;
+}
+
+/* Invisible hover target over Bootstrap's is-invalid background-icon so its
+   tooltip can be scoped to just the icon rather than the whole field — the
+   icon itself is a background-image, not a real element, so it can't carry
+   a title on its own. Positioned to match the icon's reserved padding gap:
+   between the spinner buttons and the start of the invalid-state padding. */
+.invalid-icon-tooltip {
+  position: absolute;
+  top: 0;
+}
+
+.custom-number-input.size-default .invalid-icon-tooltip {
+  right: calc(30px + var(--suffix-width, 0px));
+  width: 24px;
+  height: 32px;
+}
+
+.custom-number-input.size-compact .invalid-icon-tooltip {
+  right: calc(18px + var(--suffix-width, 0px));
+  width: 20px;
+  height: 24px;
 }
 
 .spinner-buttons {
