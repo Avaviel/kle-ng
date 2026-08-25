@@ -52,7 +52,7 @@
           <span class="text-truncate fw-medium" :title="layout.name">{{ layout.name }}</span>
           <span
             v-if="pinned"
-            class="badge text-bg-secondary flex-shrink-0"
+            class="pinned-badge text-bg-primary flex-shrink-0"
             title="Click the highlighted result again to deselect"
             data-testid="layout-preview-pinned"
             >Selected</span
@@ -263,6 +263,16 @@ onBeforeUnmount(() => {
 .preview-icon {
   width: 1.75rem;
   height: 1.75rem;
+}
+
+.pinned-badge {
+  flex: none;
+  padding: 0.2em 0.5em;
+  border-radius: 50rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1;
+  text-align: center;
 }
 
 /* Absolutely positioned over the stage's content box so the canvas is out of
