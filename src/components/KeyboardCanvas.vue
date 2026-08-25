@@ -2173,9 +2173,10 @@ const handleRotationAngleChange = (angle: number) => {
 
 // Move Exactly handlers
 const handleMoveExactlyApply = (deltaX: number, deltaY: number) => {
-  // Apply the movement to selected keys and save state
-  keyboardStore.moveSelectedKeys(deltaX, deltaY)
-  keyboardStore.saveState()
+  // Ensure the preview reflects the exact form values before finalizing (covers the
+  // case where Apply is clicked without editing a prefilled field first)
+  keyboardStore.updateMovePreview(deltaX, deltaY)
+  keyboardStore.applyMoveExactly()
 
   // Defer the mode change to avoid modal closing before click is processed
   nextTick(() => {
@@ -2187,13 +2188,21 @@ const handleMoveExactlyApply = (deltaX: number, deltaY: number) => {
 }
 
 const handleMoveExactlyCancel = () => {
-  // Exit move exactly mode without applying changes
+  // Restore original positions and exit move exactly mode
+  keyboardStore.cancelMoveExactly()
   keyboardStore.setCanvasMode('select')
+  renderScheduler.schedule(renderKeyboard)
 }
 
-const handleMoveExactlyChange = () => {
-  // This could be used for real-time preview, but for now we'll just ignore it
-  // The actual movement happens only on apply
+const handleMoveExactlyChange = (deltaX: number, deltaY: number) => {
+  // Apply movement preview directly to the keys
+  keyboardStore.updateMovePreview(deltaX, deltaY)
+
+  // Update canvas size to accommodate moved keys that may extend beyond current bounds
+  updateCanvasSize()
+
+  // Re-render to show changes
+  renderScheduler.schedule(renderKeyboard)
 }
 
 // Popup event handlers for overlapping key selection

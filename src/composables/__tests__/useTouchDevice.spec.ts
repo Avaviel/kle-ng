@@ -57,7 +57,7 @@ describe('useTouchDevice', () => {
     const { result } = mountHarness()
     expect(result.isTouchPrimaryDevice.value).toBe(false)
 
-    listeners[0]({ matches: true } as MediaQueryListEvent)
+    listeners[0]!({ matches: true } as MediaQueryListEvent)
     expect(result.isTouchPrimaryDevice.value).toBe(true)
   })
 

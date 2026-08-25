@@ -81,6 +81,7 @@ export interface KeyboardState {
     { rotation_angle?: number; rotation_x?: number; rotation_y?: number; x?: number; y?: number }
   >
   showRotationPreview: boolean
+  originalMoveStates: Map<Key, { x: number; y: number; rotation_x?: number; rotation_y?: number }>
 }
 
 export const useKeyboardStore = defineStore('keyboard', () => {
@@ -173,6 +174,11 @@ export const useKeyboardStore = defineStore('keyboard', () => {
       Key,
       { rotation_angle?: number; rotation_x?: number; rotation_y?: number; x?: number; y?: number }
     >
+  > = ref(new Map())
+
+  // Move Exactly preview state
+  const originalMoveStates: Ref<
+    Map<Key, { x: number; y: number; rotation_x?: number; rotation_y?: number }>
   > = ref(new Map())
 
   // Overlapping key selection popup state
@@ -793,6 +799,7 @@ export const useKeyboardStore = defineStore('keyboard', () => {
 
   // Toolbar actions
   const setCanvasMode = (mode: 'select' | 'mirror-h' | 'mirror-v' | 'rotate' | 'move-exactly') => {
+    const previousMode = canvasMode.value
     canvasMode.value = mode
     // Reset any ongoing operations when switching modes
     mouseDragMode.value = 'none'
@@ -803,6 +810,10 @@ export const useKeyboardStore = defineStore('keyboard', () => {
     rotationOrigin.value = null
     rotationPreviewAngle.value = 0
     showRotationPreview.value = false
+
+    if (mode === 'move-exactly' && previousMode !== 'move-exactly') {
+      startMoveExactly()
+    }
   }
 
   const setMoveStep = (step: number) => {
@@ -1078,6 +1089,62 @@ export const useKeyboardStore = defineStore('keyboard', () => {
         }
       }
     })
+  }
+
+  // Move Exactly functionality (live preview, mirrors the rotation preview pattern)
+  const startMoveExactly = () => {
+    originalMoveStates.value.clear()
+    selectedKeys.value.forEach((key) => {
+      originalMoveStates.value.set(key, {
+        x: key.x,
+        y: key.y,
+        rotation_x: key.rotation_x,
+        rotation_y: key.rotation_y,
+      })
+    })
+  }
+
+  const updateMovePreview = (deltaX: number, deltaY: number) => {
+    selectedKeys.value.forEach((key) => {
+      const original = originalMoveStates.value.get(key)
+      if (!original) return
+
+      key.x = D.add(original.x, deltaX)
+      key.y = D.add(original.y, deltaY)
+
+      if (lockRotations.value && key.rotation_angle && key.rotation_angle !== 0) {
+        if (original.rotation_x !== undefined) {
+          key.rotation_x = D.add(original.rotation_x, deltaX)
+        }
+        if (original.rotation_y !== undefined) {
+          key.rotation_y = D.add(original.rotation_y, deltaY)
+        }
+      }
+    })
+  }
+
+  const applyMoveExactly = () => {
+    if (originalMoveStates.value.size > 0) {
+      saveState()
+    }
+    originalMoveStates.value.clear()
+  }
+
+  const cancelMoveExactly = () => {
+    selectedKeys.value.forEach((key) => {
+      const original = originalMoveStates.value.get(key)
+      if (!original) return
+
+      key.x = original.x
+      key.y = original.y
+      if (original.rotation_x !== undefined) {
+        key.rotation_x = original.rotation_x
+      }
+      if (original.rotation_y !== undefined) {
+        key.rotation_y = original.rotation_y
+      }
+    })
+    originalMoveStates.value.clear()
   }
 
   // Wrapper: Move rotation origins to a specific position or key centers
@@ -1699,6 +1766,10 @@ export const useKeyboardStore = defineStore('keyboard', () => {
 
     // Movement functions
     moveSelectedKeys,
+    startMoveExactly,
+    updateMovePreview,
+    applyMoveExactly,
+    cancelMoveExactly,
 
     // URL sharing
     generateShareUrl,

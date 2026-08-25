@@ -35,6 +35,7 @@
                 value="U"
                 v-model="selectedUnit"
                 autocomplete="off"
+                @change="handleUnitChange"
               />
               <label class="btn btn-outline-primary btn-sm" for="unit-u">U</label>
 
@@ -45,6 +46,7 @@
                 value="mm"
                 v-model="selectedUnit"
                 autocomplete="off"
+                @change="handleUnitChange"
               />
               <label class="btn btn-outline-primary btn-sm" for="unit-mm">mm</label>
             </div>
@@ -210,6 +212,10 @@ watch(
       uSpacing.value = getMetadataSpacing()
       initializePosition({ x: window.innerWidth - 400, y: 100 })
 
+      // Note: the prefilled values are not previewed on open (parity with old behavior) -
+      // the live preview only kicks in once the user edits a field. Apply still uses the
+      // prefilled values even untouched (see handleApply).
+
       // Modal is now visible and ready for interaction
       await nextTick()
 
@@ -242,16 +248,26 @@ const convertYToInternalUnits = (yValue: number): number => {
   }
 }
 
+// Recompute the delta from the current field values (in whichever unit/spacing is
+// currently selected) and emit it for immediate preview
+const emitMovementPreview = () => {
+  const deltaX = convertXToInternalUnits(movementX.value)
+  const deltaY = convertYToInternalUnits(movementY.value)
+  emit('movementChange', deltaX, deltaY)
+}
+
 // Update spacing values
 const updateUSpacingX = (value: number | undefined) => {
   if (value !== undefined) {
     uSpacing.value.x = value
+    emitMovementPreview()
   }
 }
 
 const updateUSpacingY = (value: number | undefined) => {
   if (value !== undefined) {
     uSpacing.value.y = value
+    emitMovementPreview()
   }
 }
 
@@ -259,19 +275,22 @@ const updateUSpacingY = (value: number | undefined) => {
 const updateMovementX = (value: number | undefined) => {
   // Treat undefined (cleared input) as 0 for natural no-movement behavior
   movementX.value = value ?? 0
-  // Emit the delta for immediate preview (converted to internal units)
-  const deltaX = convertXToInternalUnits(movementX.value)
-  const deltaY = convertYToInternalUnits(movementY.value)
-  emit('movementChange', deltaX, deltaY)
+  emitMovementPreview()
 }
 
 const updateMovementY = (value: number | undefined) => {
   // Treat undefined (cleared input) as 0 for natural no-movement behavior
   movementY.value = value ?? 0
-  // Emit the delta for immediate preview (converted to internal units)
-  const deltaX = convertXToInternalUnits(movementX.value)
-  const deltaY = convertYToInternalUnits(movementY.value)
-  emit('movementChange', deltaX, deltaY)
+  emitMovementPreview()
+}
+
+// Re-preview when the user toggles U/mm — the field values are reinterpreted under the
+// new unit (not converted), so the resulting canvas delta changes even though the
+// displayed numbers don't. Bound to the radios' native `change` event (not a watcher on
+// selectedUnit) so it only fires on an actual user click, not the programmatic restore
+// of lastUsedValues.selectedUnit when the modal opens.
+const handleUnitChange = () => {
+  emitMovementPreview()
 }
 
 const handleApply = () => {
