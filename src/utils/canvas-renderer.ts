@@ -234,6 +234,7 @@ export class CanvasRenderer {
     isHovered = false,
     hoveredLinkHref?: string | null,
     isSearchMatch = false,
+    isPreview = false,
   ) {
     // Use KeyRenderer for shape rendering
     keyRenderer.drawKey(this.ctx, key, {
@@ -242,6 +243,7 @@ export class CanvasRenderer {
       isHovered,
       isSearchMatch,
       selectionColor: this.options.highlightColor,
+      isPreview,
     })
 
     // Get params for label rendering
@@ -257,6 +259,8 @@ export class CanvasRenderer {
     }
     if (key.ghost) {
       this.ctx.globalAlpha = 0.3
+    } else if (isPreview) {
+      this.ctx.globalAlpha = 0.4
     }
 
     // Prepare label options and callbacks
@@ -342,6 +346,7 @@ export class CanvasRenderer {
     popupHoveredKey?: Key | null,
     hoveredLinkHref?: string | null,
     searchMatchKeys: Key[] = [],
+    previewKeys: Key[] = [],
   ) {
     // Clear link tracker at start of each render
     this.linkTracker.clear()
@@ -422,6 +427,9 @@ export class CanvasRenderer {
     if (popupHoveredKey) {
       this.drawKey(popupHoveredKey, false, true, hoveredLinkHref)
     }
+
+    // Draw transient tool-preview keys (e.g. mirror result) on top of everything else
+    previewKeys.forEach((key) => this.drawKey(key, false, false, undefined, false, true))
 
     // Draw rotation origin indicators on top of all keys for selected keys
     selectedKeys.forEach((key) => {

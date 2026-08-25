@@ -179,6 +179,7 @@ import { useMatrixDrawingStore } from '@/stores/matrix-drawing'
 import { useFontStore } from '@/stores/font'
 import { useLayoutEditorSettingsStore } from '@/stores/layoutEditorSettings'
 import { CanvasRenderer, type RenderOptions } from '@/utils/canvas-renderer'
+import { mirrorKeys as mirrorKeysUtil, type MirrorAxis } from '@/utils/keyboard-transformations'
 import { renderScheduler } from '@/utils/utils/RenderScheduler'
 import { D } from '@/utils/decimal-math'
 import { keyIntersectsSelection } from '@/utils/geometry'
@@ -805,13 +806,17 @@ const updateCanvasSize = () => {
   let layoutHeight = (maxY - Math.min(minY, 0)) * unit
 
   // Expand canvas when mirror tools are active to provide space for positioning mirror axis
+  // AND for the resulting ghost-preview keys: mirroring roughly doubles a key's distance
+  // from the content (new_pos = 2*axis - pos), so a ghost can land up to ~2x as far from
+  // the content edge as the axis itself. Reserve double the axis-reach padding per side
+  // (4x total) so the ghost preview isn't clipped by the canvas bounds while hovering.
   const mirrorPadding = 200 * zoom.value // Extra space for mirror axis positioning
   if (keyboardStore.canvasMode === 'mirror-h') {
     // Horizontal mirror: expand vertically to allow positioning axis above/below keys
-    layoutHeight += mirrorPadding * 2 // Add padding on both top and bottom
+    layoutHeight += mirrorPadding * 4 // Add padding on both top and bottom
   } else if (keyboardStore.canvasMode === 'mirror-v') {
     // Vertical mirror: expand horizontally to allow positioning axis left/right of keys
-    layoutWidth += mirrorPadding * 2 // Add padding on both left and right
+    layoutWidth += mirrorPadding * 4 // Add padding on both left and right
   }
 
   // For preset layouts, fit canvas exactly to key bounds (renderer includes stroke width)
@@ -870,42 +875,45 @@ const drawRectangleSelection = (ctx: CanvasRenderingContext2D) => {
   ctx.setLineDash([])
 }
 
-const drawMirrorAxis = (ctx: CanvasRenderingContext2D) => {
-  let axisPosition = null
-  let axisKeyUnits = null
-
-  // If mirror axis is set, use it; otherwise use mouse position for preview
+// Shared axis computation used by both the axis-line preview and the mirrored
+// ghost-key preview: either the committed mirror axis, or (while hovering,
+// before commit) the mouse position snapped to the move-step grid.
+const getMirrorPreviewAxis = (): MirrorAxis | null => {
   if (keyboardStore.mirrorAxis) {
-    // mirrorAxis coordinates are in key units, convert to canvas pixels
-    axisKeyUnits = {
+    return {
       x: keyboardStore.mirrorAxis.x,
       y: keyboardStore.mirrorAxis.y,
       direction: keyboardStore.mirrorAxis.direction,
     }
-    axisPosition = {
-      x: keyboardStore.mirrorAxis.x * renderOptions.value.unit,
-      y: keyboardStore.mirrorAxis.y * renderOptions.value.unit,
-      direction: keyboardStore.mirrorAxis.direction,
-    }
-  } else if (mousePosition.value.visible) {
-    // Preview axis at mouse position with snapping to move step grid
+  }
+  if (mousePosition.value.visible) {
     const moveStep = keyboardStore.moveStep
-    const snappedX = D.roundToStep(mousePosition.value.x, moveStep)
-    const snappedY = D.roundToStep(mousePosition.value.y, moveStep)
-
-    axisKeyUnits = {
-      x: snappedX,
-      y: snappedY,
-      direction: keyboardStore.canvasMode === 'mirror-h' ? 'horizontal' : 'vertical',
-    }
-    axisPosition = {
-      x: D.mul(snappedX, renderOptions.value.unit),
-      y: D.mul(snappedY, renderOptions.value.unit),
+    return {
+      x: D.roundToStep(mousePosition.value.x, moveStep),
+      y: D.roundToStep(mousePosition.value.y, moveStep),
       direction: keyboardStore.canvasMode === 'mirror-h' ? 'horizontal' : 'vertical',
     }
   }
+  return null
+}
 
-  if (!axisPosition || !axisKeyUnits) return
+const getMirrorPreviewKeys = (): Key[] => {
+  if (keyboardStore.canvasMode !== 'mirror-h' && keyboardStore.canvasMode !== 'mirror-v') return []
+  if (keyboardStore.selectedKeys.length === 0) return []
+  const axis = getMirrorPreviewAxis()
+  if (!axis) return []
+  return mirrorKeysUtil(keyboardStore.selectedKeys, axis)
+}
+
+const drawMirrorAxis = (ctx: CanvasRenderingContext2D) => {
+  const axisKeyUnits = getMirrorPreviewAxis()
+  if (!axisKeyUnits) return
+
+  const axisPosition = {
+    x: D.mul(axisKeyUnits.x, renderOptions.value.unit),
+    y: D.mul(axisKeyUnits.y, renderOptions.value.unit),
+    direction: axisKeyUnits.direction,
+  }
 
   // Save current context state
   ctx.save()
@@ -1024,6 +1032,7 @@ const renderKeyboard = (options?: { skipContainerBackground?: boolean }) => {
       const isPreview = keyboardStore.isLayoutPreviewMode
       const searchMatchKeys =
         !isPreview && keySearch.isSearchOpen.value ? keySearch.matchingKeys.value : []
+      const mirrorPreviewKeys = isPreview ? [] : getMirrorPreviewKeys()
       renderer.value.render(
         keysForRender.value,
         isPreview ? [] : keysToHighlight,
@@ -1037,6 +1046,7 @@ const renderKeyboard = (options?: { skipContainerBackground?: boolean }) => {
         keyboardStore.popupHoveredKey,
         hoveredLinkHref.value,
         searchMatchKeys,
+        mirrorPreviewKeys,
       )
 
       // Draw rectangle selection if active

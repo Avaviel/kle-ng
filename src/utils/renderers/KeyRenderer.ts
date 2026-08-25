@@ -33,6 +33,8 @@ export interface KeyRenderOptions {
   isSearchMatch?: boolean
   /** Override color for selected/hovered state */
   selectionColor?: string
+  /** Whether this key is a transient tool preview (e.g. mirror result) that doesn't exist yet */
+  isPreview?: boolean
 }
 
 /**
@@ -87,6 +89,7 @@ export class KeyRenderer {
   private static readonly HOVER_COLOR = KeyRenderer.SELECTION_COLOR // Same color for hovered keys (popup disambiguation)
   private static readonly SEARCH_MATCH_COLOR = '#f59e0b' // Amber color for search match keys
   private static readonly GHOST_OPACITY = 0.3 // Opacity for ghost keys
+  private static readonly PREVIEW_OPACITY = 0.4 // Opacity for transient tool-preview keys (e.g. mirror result)
   private static readonly PIXEL_ALIGNMENT_OFFSET = 0.5 // Offset for crisp stroke rendering
 
   // Homing nub constants (matching original KLE)
@@ -609,9 +612,11 @@ export class KeyRenderer {
       ctx.translate(-params.origin_x, -params.origin_y)
     }
 
-    // Apply ghosting
+    // Apply ghosting / transient tool-preview fading
     if (key.ghost) {
       ctx.globalAlpha = KeyRenderer.GHOST_OPACITY
+    } else if (options.isPreview) {
+      ctx.globalAlpha = KeyRenderer.PREVIEW_OPACITY
     }
 
     // Unified rendering: same algorithm for all key types

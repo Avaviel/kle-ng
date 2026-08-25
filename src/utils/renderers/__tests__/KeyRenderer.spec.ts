@@ -626,6 +626,27 @@ describe('KeyRenderer', () => {
       expect(mockCtx.restore).toHaveBeenCalled()
     })
 
+    it('should render preview key with reduced opacity, distinct from ghost', () => {
+      const key: Partial<Key> = {
+        x: 0,
+        y: 0,
+        width: 1,
+        height: 1,
+        color: '#cccccc',
+        default: {
+          textColor: '#000000',
+          textSize: 3,
+        },
+      }
+
+      renderer.drawKey(mockCtx, key as Key, { unit: 54, isPreview: true })
+
+      // Preview keys are faded, but not to the same opacity as a persisted ghost key
+      expect(mockCtx.globalAlpha).toBeLessThan(1)
+      expect(mockCtx.globalAlpha).toBeGreaterThan(0)
+      expect(mockCtx.globalAlpha).not.toBe(0.3)
+    })
+
     it('should render non-rectangular key', () => {
       const key: Partial<Key> = {
         x: 0,

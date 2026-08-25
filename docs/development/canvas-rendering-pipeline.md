@@ -167,8 +167,11 @@ CanvasRenderer.render(keys, selectedKeys, metadata)
     │   │   ├─► KeyRenderer.drawKey() — red border (#dc3545)
     │   │   └─► LabelRenderer.drawKeyLabels()
     │   │
-    │   └─► Pass 4: Popup-hovered key (disambiguation)
-    │       └─► KeyRenderer.drawKey() — red border (isHovered)
+    │   ├─► Pass 4: Popup-hovered key (disambiguation)
+    │   │   └─► KeyRenderer.drawKey() — red border (isHovered)
+    │   │
+    │   └─► Pass 5: Preview keys (e.g. mirror ghost result), if any
+    │       └─► KeyRenderer.drawKey() — faded, isPreview=true
     │
     └─► RotationRenderer.drawRotationPoints() (if in rotation mode)
 ```
@@ -184,7 +187,7 @@ CanvasRenderer.render(keys, selectedKeys, metadata)
    - Keys split into selected/non-selected groups
    - Each group sorted by: rotation angle → rotation origin → y position → x position
    - Non-selected keys further partitioned into regular and search-match groups in a single pass
-   - Ensures proper Z-ordering: regular → search matches → selected → popup-hovered
+   - Ensures proper Z-ordering: regular → search matches → selected → popup-hovered → preview
 
 3. **Key Rendering Phase** (for each key)
    - **Parameter Calculation**: `KeyRenderer.getRenderParams()`
@@ -256,6 +259,7 @@ class CanvasRenderer {
     popupHoveredKey?,
     hoveredLinkHref?,
     searchMatchKeys?,
+    previewKeys?,
   )
 
   // Configuration
@@ -308,6 +312,7 @@ interface RenderOptions {
   - Partitions keys into four layers (regular → search matches → selected → popup-hovered)
   - Delegates key/label rendering (passing `hoveredLinkHref` for underline styling)
   - Draws popup-hovered key on top with highlight (for overlapping key disambiguation)
+  - Draws `previewKeys` last, faded (`isPreview` option — see [Mirror Ghost Preview](#mirror-ghost-preview))
   - Draws rotation UI overlays
 
 - **`getLinkAtPosition()`**: Returns clickable link at canvas coordinates
@@ -451,7 +456,8 @@ interface KeyRenderParams {
 SELECTION_COLOR = '#dc3545' // Red for selected keys
 HOVER_COLOR = '#dc3545' // Same color for hovered keys (popup disambiguation)
 SEARCH_MATCH_COLOR = '#f59e0b' // Amber color for search match keys
-GHOST_OPACITY = 0.3 // Opacity for ghost keys
+GHOST_OPACITY = 0.3 // Opacity for ghost keys (key.ghost data flag)
+PREVIEW_OPACITY = 0.4 // Opacity for transient tool-preview keys (e.g. mirror result)
 PIXEL_ALIGNMENT_OFFSET = 0.5 // For crisp 1px strokes
 
 // Homing nub (F/J keys)
@@ -2895,6 +2901,56 @@ Added a read-only layout preview mode for VIA-annotated keyboards that contain `
 3. **Multi-group `Map` approach** — `collapseToLayoutChoices` accepts `Map<number, number>` so all option groups are resolved in one call, and clicking any bubble in the toolbar updates only the affected group while preserving other groups' choices.
 
 4. **Invalidation watcher in the store** — when the key array changes while preview is active, invalid choices fall back to 0 and gone option groups are dropped. If nothing remains, the store exits preview automatically, preventing stale display state after edits.
+
+---
+
+### Mirror Ghost Preview
+
+Before this change, the mirror tool (`mirror-h` / `mirror-v` canvas modes) only drew a helper axis
+line while hovering — the resulting keys were invisible until the user clicked to commit. Hovering
+now also renders the would-be mirrored keys in place, faded, so the result is visible before the
+click.
+
+**Modified files**:
+
+- `src/utils/renderers/KeyRenderer.ts` — added `isPreview` to `KeyRenderOptions` and the
+  `PREVIEW_OPACITY` constant (0.4)
+- `src/utils/canvas-renderer.ts` — added `previewKeys` as the 11th parameter to `render()`, drawn
+  last via the existing private `drawKey()` with `isPreview=true`
+- `src/components/KeyboardCanvas.vue` — `getMirrorPreviewAxis()` (axis-position computation shared
+  with the existing axis-line preview), `getMirrorPreviewKeys()` (calls `mirrorKeys()` against the
+  current selection and axis), and the mirror-mode padding in `updateCanvasSize()`
+
+**Key design decisions**:
+
+1. **A distinct `isPreview` flag, not the `key.ghost` data property** — `key.ghost` is a persisted
+   KLE property with its own meaning (decorative legend-only keys; inner cap suppressed).
+   Conflating a transient tool preview with it would read as "this is a real key in the layout"
+   rather than "this doesn't exist yet," and would suppress the inner cap so the preview no longer
+   looks like the key it's previewing. `isPreview` fades the full key shape (`PREVIEW_OPACITY`,
+   distinct from `GHOST_OPACITY`) without touching the inner-rect-suppression path.
+
+2. **Preview keys are a transient computed array, never pushed into store state** — `mirrorKeys()`
+   (`src/utils/keyboard-transformations.ts`) already deep-clones and returns new key objects given
+   an axis; the same pure function drives both the eventual commit (`performMirror()` in
+   `src/stores/keyboard.ts`) and the live preview. This mirrors the existing pattern for the
+   Rotate Selection / Move Exactly tools, except those mutate the _existing_ selected keys in
+   place, whereas mirroring produces brand-new keys that must stay out of `keyboardStore.keys`
+   until commit.
+
+3. **No new watcher or store state** — mirror-mode mousemove already scheduled a redraw to update
+   the axis line (`renderScheduler.schedule(renderKeyboard)`); `getMirrorPreviewKeys()` is just
+   called again inside that same render pass, recomputed fresh from the current mouse position and
+   selection each frame.
+
+4. **Mirror-mode canvas padding doubled** — `updateCanvasSize()` already expanded the canvas
+   beyond the real key bounds while a mirror tool is active, so the user has room to position the
+   axis away from the content (`mirrorPadding`, 200px). Mirroring roughly doubles a key's distance
+   from the content (`new_pos = 2*axis - pos`), so a preview key hovered near the edge of that
+   padding could land up to ~2x as far from the content as the axis itself — outside the canvas's
+   own raster bounds, and therefore invisible no matter how far the panel was scrolled. The padding
+   added for mirror modes was doubled (`mirrorPadding * 4` instead of `* 2`) so the canvas reliably
+   contains the preview across the same axis-positioning range as before.
 
 ---
 

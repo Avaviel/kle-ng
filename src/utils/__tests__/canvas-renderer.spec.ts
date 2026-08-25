@@ -732,6 +732,45 @@ describe('CanvasRenderer', () => {
       // Should still render the non-selected key
       expect(mockContext.fill).toHaveBeenCalled()
     })
+
+    it('should render preview keys (e.g. mirror ghost result) without throwing', () => {
+      const key1 = {
+        ...new Key(),
+        x: 0,
+        y: 0,
+        color: '#cc0000',
+        labels: ['', '', '', '', 'A', '', '', '', '', '', '', ''],
+      } as Key
+
+      const previewKey = {
+        ...new Key(),
+        x: 3,
+        y: 0,
+        color: '#cc0000',
+        labels: ['', '', '', '', 'A', '', '', '', '', '', '', ''],
+      } as Key
+
+      const metadata = new KeyboardMetadata()
+
+      expect(() => {
+        renderer.render(
+          [key1],
+          [],
+          metadata,
+          true,
+          false,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          [],
+          [previewKey],
+        )
+      }).not.toThrow()
+
+      // Preview key still gets drawn (faded) alongside the regular key
+      expect(mockContext.fill).toHaveBeenCalled()
+    })
   })
 
   describe('text wrapping', () => {
