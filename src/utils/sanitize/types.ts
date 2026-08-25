@@ -7,9 +7,10 @@ import type { Key } from '@adamws/kle-serial'
  *   export path. Removing it cannot change what the user sees. `count` is the
  *   number of individual fields that would be cleared, so counts are additive.
  * - `normalization` rewrites live data. The result looks identical on canvas,
- *   but the underlying values all change. `count` is 0 or 1 — it describes a
- *   single whole-layout operation, so it must never be summed together with
- *   `redundancy` counts.
+ *   but the underlying values change. `count` is on the rule's own scale — the
+ *   keys it would rewrite, or 0/1 for a whole-layout operation like recentring —
+ *   so it must never be summed together with `redundancy` counts, or with
+ *   another normalization rule's count.
  *
  * This discriminator carries no weight in the engine itself; `applySanitizeFixes`
  * treats every rule identically. It exists so the panel can group and report the

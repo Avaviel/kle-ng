@@ -1,6 +1,7 @@
 import type { Key } from '@adamws/kle-serial'
 import type { SanitizeRule, SanitizeRuleKind, SanitizeScanResult } from './types'
 import { coordinateOffsetRule } from './rules/coordinate-offset.rule'
+import { rotationAngleRule } from './rules/rotation-angle.rule'
 import { whitespaceLabelRule } from './rules/whitespace-label.rule'
 import { blankLabelTextSizeRule } from './rules/blank-label-text-size.rule'
 import { blankLabelTextColorRule } from './rules/blank-label-text-color.rule'
@@ -25,6 +26,7 @@ export { isLabelBlank } from './label-utils'
  */
 export const SANITIZE_RULES: SanitizeRule[] = [
   coordinateOffsetRule,
+  rotationAngleRule,
   whitespaceLabelRule,
   blankLabelTextSizeRule,
   blankLabelTextColorRule,

@@ -145,7 +145,7 @@ const keyboardStore = useKeyboardStore()
 // currently open", with nothing to reuse or persist across mounts.
 const scanResults = ref<SanitizeCategorySummary[]>([])
 const selectedRuleIds = ref<Set<string>>(new Set())
-const lastApplied = ref<{ fields: number; normalizations: number } | null>(null)
+const lastApplied = ref<{ fields: number; normalized: string[] } | null>(null)
 
 const { position, panelRef, handleMouseDown, handleHeaderMouseDown, initializePosition } =
   useDraggablePanel({
@@ -179,9 +179,11 @@ const canApply = computed(() =>
   scanResults.value.some((r) => selectedRuleIds.value.has(r.ruleId) && r.count > 0),
 )
 
-// The two kinds are counted on different scales — per-field for redundancy, 0-or-1
-// per whole-layout operation for normalization — so they are reported separately
-// rather than summed into a meaningless total.
+// The two kinds are counted on different scales — per-field for redundancy, and
+// per-rule scales for normalization (a whole-layout recentre vs. a tally of keys)
+// — so they are reported separately rather than summed into a meaningless total.
+// The normalization half names the rules that ran instead of counting anything,
+// which stays accurate however many of them there are.
 const lastAppliedMessage = computed(() => {
   const applied = lastApplied.value
   if (!applied) return ''
@@ -192,8 +194,8 @@ const lastAppliedMessage = computed(() => {
       `Cleared ${applied.fields} redundant ${applied.fields === 1 ? 'property' : 'properties'}`,
     )
   }
-  if (applied.normalizations > 0) {
-    parts.push('Normalized layout position')
+  if (applied.normalized.length > 0) {
+    parts.push(`Normalized ${applied.normalized.map((name) => name.toLowerCase()).join(', ')}`)
   }
   return parts.join(' · ')
 })
@@ -244,7 +246,7 @@ function handleApply() {
 
   const tally = {
     fields: applied.filter((r) => r.kind === 'redundancy').reduce((sum, r) => sum + r.count, 0),
-    normalizations: applied.filter((r) => r.kind === 'normalization').length,
+    normalized: applied.filter((r) => r.kind === 'normalization').map((r) => r.name),
   }
 
   keyboardStore.applySanitize(applied.map((r) => r.ruleId))
@@ -432,7 +434,7 @@ onUnmounted(() => {
 
 /*
  * Two tight lines per rule: name + count, then a short description. Sized so all
- * five rules, both group headings and the buttons fit one window without
+ * six rules, both group headings and the buttons fit one window without
  * scrolling — anything added here has to stay within that budget.
  */
 .form-check-label {

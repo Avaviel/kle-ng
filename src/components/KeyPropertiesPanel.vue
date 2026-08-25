@@ -935,6 +935,7 @@ import CustomNumberInput from './CustomNumberInput.vue'
 import { D } from '@/utils/decimal-math'
 import { recentlyUsedColorsManager } from '@/utils/recently-used-colors'
 import { isValidHex, normalizeHex } from '@/utils/color-utils'
+import { normalizeAngleDegrees } from '@/utils/angle-utils'
 import { isNonRectangular as isNonRectangularUtil } from '@/utils/key-utils'
 import ManufacturingHelpModal from './ManufacturingHelpModal.vue'
 import BiQuestionCircle from 'bootstrap-icons/icons/question-circle.svg'
@@ -1095,16 +1096,12 @@ const relativeToAbsolute = (relativeCoord: number, keyPosition: number): number 
   return D.add(relativeCoord, keyPosition)
 }
 
-// Normalize rotation angle to -180 to 180 range
-const normalizeRotationAngle = (angle: number): number => {
-  while (angle > 180) {
-    angle -= 360
-  }
-  while (angle < -180) {
-    angle += 360
-  }
-  return formatNumber(angle)
-}
+// Normalize rotation angle to -180 to 180 range.
+//
+// Shared with the sanitize tool's rotation-angle rule so both agree on the
+// canonical form, and O(1) so a hand-edited JSON carrying something like 1e20
+// cannot hang the tab when its key is selected.
+const normalizeRotationAngle = normalizeAngleDegrees
 
 // Computed properties for display values
 const displayRotationX = computed({

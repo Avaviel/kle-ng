@@ -130,6 +130,18 @@ describe('coordinateOffsetRule', () => {
       coordinateOffsetRule.fix(keys)
       expect(staleRotationOriginRule.scan(keys).count).toBe(0)
     })
+
+    it('treats a whole-turn angle as unrotated', () => {
+      // A truthy-but-meaningless 360 would slip past a plain `if (angle)` guard
+      // and hand a key with no effective rotation a nonzero origin.
+      const keys = [makeKey({ x: 3, y: 3, rotation_angle: 360 }), makeKey({ x: 4, y: 3 })]
+
+      coordinateOffsetRule.fix(keys)
+
+      expect(keys[0]!.rotation_x).toBe(0)
+      expect(keys[0]!.rotation_y).toBe(0)
+      expect(staleRotationOriginRule.scan(keys).count).toBe(0)
+    })
   })
 
   describe('secondary rectangle', () => {

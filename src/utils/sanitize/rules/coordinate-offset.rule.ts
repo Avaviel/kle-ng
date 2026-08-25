@@ -1,5 +1,6 @@
 import type { Key } from '@adamws/kle-serial'
 import { D } from '../../decimal-math'
+import { normalizeAngleDegrees } from '../../angle-utils'
 import { BoundsCalculator } from '../../utils/BoundsCalculator'
 import type { SanitizeRule } from '../types'
 
@@ -66,7 +67,10 @@ export const coordinateOffsetRule: SanitizeRule = {
       // tool would manufacture the redundancy it exists to remove, masked in the
       // common case only by registry ordering. When the angle is zero the origin
       // has no effect on anything, so leaving it untouched is correct as well as safe.
-      if (key.rotation_angle) {
+      //
+      // The angle is wrapped for the same reason: a whole turn (360, -720, ...)
+      // is just as unrotated as 0, and stale-rotation-origin reads it that way too.
+      if (normalizeAngleDegrees(key.rotation_angle ?? 0) !== 0) {
         key.rotation_x = D.round(D.add(key.rotation_x || 0, dx), 6)
         key.rotation_y = D.round(D.add(key.rotation_y || 0, dy), 6)
       }

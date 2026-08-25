@@ -14,6 +14,10 @@ function makeKey(overrides: Partial<Key> = {}): Key {
  * Seeds the store with a layout carrying every issue type: offset from the
  * origin, a whitespace-only label, orphaned size/color overrides, and a stale
  * rotation origin — across one unrotated and one rotated key.
+ *
+ * Rotation angles are deliberately in range here, so the tests below have
+ * exactly one normalization rule with issues to reason about; the rotation-angle
+ * rule gets its own seeds.
  */
 function seedDirtyLayout(store: ReturnType<typeof useKeyboardStore>) {
   const a = makeKey({ x: 3, y: 2, rotation_angle: 0, rotation_x: 1, rotation_y: 1 })
@@ -94,6 +98,7 @@ describe('SanitizeToolPanel', () => {
       expect(normalization.find('[data-testid="sanitize-rule-coordinate-offset"]').exists()).toBe(
         true,
       )
+      expect(normalization.find('[data-testid="sanitize-rule-rotation-angle"]').exists()).toBe(true)
       expect(redundancy.find('[data-testid="sanitize-rule-coordinate-offset"]').exists()).toBe(
         false,
       )
@@ -127,6 +132,25 @@ describe('SanitizeToolPanel', () => {
       expect(wrapper.find('.clean-banner').exists()).toBe(true)
       expect(applyButton().attributes('disabled')).toBeDefined()
       expect(isDisabled('coordinate-offset')).toBe(true)
+    })
+
+    it('flags out-of-range rotation angles and wraps them on Apply', async () => {
+      // The angle controls always write a wrapped value; a hand-edited JSON can
+      // carry anything, which is what this rule is for.
+      store.keys = [
+        makeKey({ x: 0, y: 0, rotation_angle: 3600 }),
+        makeKey({ x: 1, y: 0, rotation_angle: 345, rotation_x: 1, rotation_y: 0 }),
+      ]
+      await open()
+
+      expect(count('rotation-angle')).toBe('2')
+      expect(isChecked('rotation-angle')).toBe(true)
+
+      await applyButton().trigger('click')
+
+      expect(store.keys[0]!.rotation_angle).toBe(0)
+      expect(store.keys[1]!.rotation_angle).toBe(-15)
+      expect(count('rotation-angle')).toBe('0')
     })
 
     it('shows at most one status line', async () => {
@@ -315,6 +339,19 @@ describe('SanitizeToolPanel', () => {
 
       const text = wrapper.get('[data-testid="sanitize-result"]').text()
       expect(text).toBe('Normalized layout position')
+    })
+
+    it('names every normalization rule that ran rather than counting them', async () => {
+      // Two normalization rules on different scales — a whole-layout shift and a
+      // per-key tally — have no meaningful sum, so the banner lists them by name.
+      store.keys = [makeKey({ x: 3, y: 2, rotation_angle: 3600 })]
+
+      await open()
+      await applyButton().trigger('click')
+
+      expect(wrapper.get('[data-testid="sanitize-result"]').text()).toBe(
+        'Normalized layout position, rotation angles',
+      )
     })
 
     it('uses the singular for a single property', async () => {

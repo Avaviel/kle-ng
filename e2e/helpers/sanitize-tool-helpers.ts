@@ -3,6 +3,7 @@ import { WaitHelpers } from './wait-helpers'
 
 export type SanitizeRuleId =
   | 'coordinate-offset'
+  | 'rotation-angle'
   | 'whitespace-label'
   | 'blank-label-text-size'
   | 'blank-label-text-color'

@@ -6,8 +6,8 @@ import { makeKey } from './fixtures'
 
 /**
  * A layout carrying every issue type at once: offset from the origin, a
- * whitespace-only label, orphaned size/color overrides, and a stale rotation
- * origin. Includes both a rotated and an unrotated key.
+ * whitespace-only label, orphaned size/color overrides, a stale rotation origin
+ * and an out-of-range rotation angle. Includes both a rotated and an unrotated key.
  */
 function dirtyLayout(): Key[] {
   const a = makeKey({ x: 3, y: 2, rotation_angle: 0, rotation_x: 1, rotation_y: 1 })
@@ -15,7 +15,7 @@ function dirtyLayout(): Key[] {
   a.textSize[4] = 5
   a.textColor[4] = '#ff0000'
 
-  const b = makeKey({ x: 4, y: 2, rotation_angle: 20, rotation_x: 4, rotation_y: 2 })
+  const b = makeKey({ x: 4, y: 2, rotation_angle: 380, rotation_x: 4, rotation_y: 2 })
   b.labels[0] = 'B'
 
   return [a, b]
@@ -49,6 +49,7 @@ describe('scanLayout', () => {
     const results = scanLayout(dirtyLayout())
 
     expect(countFor(results, 'coordinate-offset')).toBe(1)
+    expect(countFor(results, 'rotation-angle')).toBe(1)
     expect(countFor(results, 'whitespace-label')).toBe(1)
     expect(countFor(results, 'blank-label-text-size')).toBe(1)
     expect(countFor(results, 'blank-label-text-color')).toBe(1)
@@ -85,6 +86,7 @@ describe('applySanitizeFixes', () => {
     expect(countFor(results, 'whitespace-label')).toBe(0)
     // Everything else is left exactly as it was.
     expect(countFor(results, 'coordinate-offset')).toBe(1)
+    expect(countFor(results, 'rotation-angle')).toBe(1)
     expect(countFor(results, 'blank-label-text-size')).toBe(1)
     expect(countFor(results, 'blank-label-text-color')).toBe(1)
     expect(countFor(results, 'stale-rotation-origin')).toBe(1)
@@ -118,6 +120,26 @@ describe('applySanitizeFixes', () => {
 
     expect(staleRotationOriginRule.scan(keys).count).toBe(0)
     expect(keys.every((k) => k.rotation_x === 0 && k.rotation_y === 0)).toBe(true)
+  })
+
+  it('no rule run on its own raises another rule’s count', () => {
+    // Rules are individually selectable, so a rule that only looks correct
+    // because a later one cleans up after it is broken for anyone who unchecks
+    // that later rule. Registry order must never be load-bearing.
+    for (const rule of SANITIZE_RULES) {
+      const keys = dirtyLayout()
+      const before = scanLayout(keys)
+
+      applySanitizeFixes(keys, [rule.id])
+
+      for (const [i, after] of scanLayout(keys).entries()) {
+        if (after.ruleId === rule.id) continue
+        expect(
+          after.count,
+          `${rule.id} raised ${after.ruleId} from ${before[i]!.count} to ${after.count}`,
+        ).toBeLessThanOrEqual(before[i]!.count)
+      }
+    }
   })
 
   it('is independent of the order rule ids are passed in', () => {

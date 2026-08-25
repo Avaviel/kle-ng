@@ -31,8 +31,30 @@ describe('staleRotationOriginRule', () => {
     expect(keys[0]!.rotation_y).toBe(0)
   })
 
+  it('flags an origin on a key rotated by a whole turn', () => {
+    // 360 puts the key exactly where 0 does, so the origin has no effect there
+    // either. Reading the wrapped angle also keeps this rule in step with the
+    // rotation-angle rule, which would otherwise turn this into a new issue.
+    const keys = [
+      makeKey({ rotation_angle: 360, rotation_x: 3, rotation_y: 2 }),
+      makeKey({ rotation_angle: -720, rotation_x: 3, rotation_y: 2 }),
+    ]
+
+    expect(staleRotationOriginRule.scan(keys).count).toBe(2)
+
+    staleRotationOriginRule.fix(keys)
+
+    expect(keys.every((k) => k.rotation_x === 0 && k.rotation_y === 0)).toBe(true)
+    // The angle itself belongs to the rotation-angle rule.
+    expect(keys[0]!.rotation_angle).toBe(360)
+  })
+
   it('leaves rotated keys alone', () => {
-    const keys = [makeKey({ rotation_angle: 15, rotation_x: 3, rotation_y: 2 })]
+    const keys = [
+      makeKey({ rotation_angle: 15, rotation_x: 3, rotation_y: 2 }),
+      // Out of range but a real rotation: the origin is live data.
+      makeKey({ rotation_angle: 375, rotation_x: 3, rotation_y: 2 }),
+    ]
     const before = structuredClone(keys)
 
     expect(staleRotationOriginRule.scan(keys).count).toBe(0)

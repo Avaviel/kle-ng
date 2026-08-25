@@ -191,6 +191,51 @@ test.describe('Sanitize Layout tool', () => {
     await sanitize.expectApplyDisabled()
   })
 
+  test('wraps rotation angles a hand-edited JSON smuggled in', async ({ page }) => {
+    // The angle controls always write a wrapped value, so an angle like 3600 can
+    // only arrive by editing the JSON directly — which is what this does.
+    await canvasHelper.loadJsonLayout(
+      JSON.stringify([
+        [{ r: 3600, rx: 2, ry: 1, x: 0, y: 0 }, 'A'],
+        [{ r: 380, rx: 4, ry: 1, x: 0, y: 0 }, 'B'],
+        [{ r: 20, rx: 6, ry: 1, x: 0, y: 0 }, 'C'],
+      ]),
+    )
+
+    await sanitize.openPanel()
+
+    // The already-wrapped key is not counted.
+    await sanitize.expectCount('rotation-angle', 2)
+    await sanitize.expectChecked('rotation-angle')
+    await expect(
+      sanitize.getGroup('normalization').locator('[data-testid="sanitize-rule-rotation-angle"]'),
+    ).toBeVisible()
+
+    await sanitize.apply()
+
+    await sanitize.expectCount('rotation-angle', 0)
+    await sanitize.expectCheckboxDisabled('rotation-angle')
+    await expect(sanitize.getResultBanner()).toContainText('rotation angles')
+
+    const layout = await exportLayout(page, 'sanitize-angles')
+    const angles = keyObjects(layout)
+      .map((k) => k.r)
+      .filter((r) => r !== undefined)
+
+    // 380 came down to 20, matching the key that was already there. (KLE emits
+    // `r` only when it changes between rotation clusters, so the two keys now
+    // sharing 20 are described by a single `r`.)
+    expect(angles).not.toContain(3600)
+    expect(angles).not.toContain(380)
+    expect(angles).toContain(20)
+    expect(angles.every((r) => Math.abs(r as number) <= 180)).toBe(true)
+
+    // The whole turn collapsed to no rotation at all, and its origin — dead
+    // weight at any multiple of 360 — went with it. That key sorts into the
+    // leading unrotated cluster, so it carries no property object whatsoever.
+    expect(layout[0]).toEqual(['A'])
+  })
+
   test('each Apply is a single undo step', async ({ page }) => {
     await sanitize.openPanel()
 
