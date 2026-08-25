@@ -103,12 +103,16 @@
   />
 
   <!-- Sanitize Tool Panel -->
-  <SanitizeToolPanel :visible="showSanitizeToolPanel" @close="showSanitizeToolPanel = false" />
+  <SanitizeToolPanel
+    :visible="layoutEditorSettingsStore.showSanitizeToolPanel"
+    @close="layoutEditorSettingsStore.showSanitizeToolPanel = false"
+  />
 </template>
 
 <script setup lang="ts">
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useKeyboardStore } from '@/stores/keyboard'
+import { useLayoutEditorSettingsStore } from '@/stores/layoutEditorSettings'
 import { SPECIAL_KEYS, type SpecialKeyTemplate } from '@/data/specialKeys'
 import LegendToolsPanel from './LegendToolsPanel.vue'
 import RotationOriginsPanel from './RotationOriginsPanel.vue'
@@ -121,6 +125,7 @@ import ToolbarHistorySection from './ToolbarHistorySection.vue'
 
 // Store
 const keyboardStore = useKeyboardStore()
+const layoutEditorSettingsStore = useLayoutEditorSettingsStore()
 
 // Special keys data
 const specialKeys = SPECIAL_KEYS
@@ -133,9 +138,6 @@ const showRotationOriginsPanel = ref(false)
 
 // Theme tools panel
 const showThemeToolsPanel = ref(false)
-
-// Sanitize tool panel
-const showSanitizeToolPanel = ref(false)
 
 // Matrix coordinates modal
 const showMatrixModal = ref(false)
@@ -203,7 +205,7 @@ const extraTools = computed((): ExtraTool[] => {
       description: 'Find and clean up redundant JSON properties and layout offsets',
       disabled: isPreview,
       action: () => {
-        showSanitizeToolPanel.value = true
+        layoutEditorSettingsStore.showSanitizeToolPanel = true
       },
     },
   ]

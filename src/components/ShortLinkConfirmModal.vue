@@ -20,32 +20,63 @@
 
         <!-- Consent. Nothing has been stored yet, and Cancel is still a way out. -->
         <div v-else-if="stage !== 'done'" class="modal-body">
-          <p>
-            A short link stores this layout on the kle-ng server and gives you a URL that points at
-            it. Before you create one:
-          </p>
-          <ul class="mb-3">
-            <li class="mb-2">
-              <strong>It makes the design public.</strong> Anyone who has the link can open the
-              layout, without signing in. Treat creating a short link as publishing the design.
-            </li>
-            <li class="mb-2">
-              <strong>It cannot be undone.</strong> There is no way to delete a short link or
-              withdraw a layout once it has been stored — not from the app, and not by deleting your
-              account. Assume it is permanent.
-            </li>
-            <li class="mb-2">
-              <strong>kle-ng may keep and use it.</strong> The stored layout may be retained
-              indefinitely and used by kle-ng in the future, including after you stop using the app.
-            </li>
-          </ul>
-          <p class="mb-0 text-body-secondary">
-            If you would rather not store anything on the server, use the plain
-            <strong>Share Link</strong> button instead. It packs the whole layout into the URL, so
-            it needs no account and no server — it is just much longer.
-          </p>
+          <!-- Skipped once the user has already dismissed it (skipWarning): getting here
+               with skipWarning on means a sanitize issue forced the screen open (see
+               openForCurrentLayout), not that the privacy tradeoffs need repeating. -->
+          <template v-if="!shortLinksStore.skipWarning">
+            <p>
+              A short link stores this layout on the kle-ng server and gives you a URL that points
+              at it. Before you create one:
+            </p>
+            <ul class="mb-3">
+              <li class="mb-2">
+                <strong>It makes the design public.</strong> Anyone who has the link can open the
+                layout, without signing in. Treat creating a short link as publishing the design.
+              </li>
+              <li class="mb-2">
+                <strong>It cannot be undone.</strong> There is no way to delete a short link or
+                withdraw a layout once it has been stored — not from the app, and not by deleting
+                your account. Assume it is permanent.
+              </li>
+              <li class="mb-2">
+                <strong>kle-ng may keep and use it.</strong> The stored layout may be retained
+                indefinitely and used by kle-ng in the future, including after you stop using the
+                app.
+              </li>
+            </ul>
+            <p class="mb-0 text-body-secondary">
+              If you would rather not store anything on the server, use the plain
+              <strong>Share Link</strong> button instead. It packs the whole layout into the URL, so
+              it needs no account and no server — it is just much longer.
+            </p>
+          </template>
 
-          <div class="form-check mt-3">
+          <div
+            v-if="sanitizeIssueCount > 0"
+            class="alert alert-warning d-flex align-items-start gap-2 mt-3 mb-0"
+            role="alert"
+            data-testid="short-link-sanitize-warning"
+          >
+            <BiExclamationTriangle class="flex-shrink-0 mt-1" aria-hidden="true" />
+            <div>
+              This layout has {{ sanitizeIssueCount }} item{{
+                sanitizeIssueCount === 1 ? '' : 's'
+              }}
+              that <strong>Sanitize Layout</strong> could clean up before it is shared publicly.
+              <div class="mt-2">
+                <button
+                  type="button"
+                  class="btn btn-sm btn-outline-warning"
+                  data-testid="short-link-open-sanitize"
+                  @click="openSanitizeTool"
+                >
+                  Open Sanitize Layout
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div v-if="!shortLinksStore.skipWarning" class="form-check mt-3">
             <input
               id="shortLinkDontShowAgain"
               v-model="dontShowAgain"
@@ -87,7 +118,7 @@
             <button
               type="button"
               class="btn"
-              :class="copied ? 'btn-success' : 'btn-outline-secondary'"
+              :class="copied ? 'btn-primary' : 'btn-outline-secondary'"
               data-testid="short-link-copy"
               @click="copy"
             >
@@ -125,7 +156,7 @@
                 class="spinner-border spinner-border-sm me-2"
                 aria-hidden="true"
               ></span>
-              {{ errorMessage ? 'Try again' : 'Create short link' }}
+              {{ errorMessage ? 'Try again' : 'Create anyway' }}
             </button>
           </template>
           <button
@@ -147,7 +178,10 @@
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useKeyboardStore } from '@/stores/keyboard'
 import { useShortLinksStore } from '@/stores/short-links'
+import { useLayoutEditorSettingsStore } from '@/stores/layoutEditorSettings'
 import { buildShortLinkUrl } from '@/utils/short-links'
+import { scanLayout } from '@/utils/sanitize'
+import BiExclamationTriangle from 'bootstrap-icons/icons/exclamation-triangle.svg'
 
 interface Props {
   isVisible: boolean
@@ -162,6 +196,7 @@ const emit = defineEmits<Emits>()
 
 const keyboardStore = useKeyboardStore()
 const shortLinksStore = useShortLinksStore()
+const layoutEditorSettingsStore = useLayoutEditorSettingsStore()
 
 type Stage = 'consent' | 'creating' | 'done'
 
@@ -178,6 +213,21 @@ const urlInput = ref<HTMLInputElement | null>(null)
 const silentCreate = ref(false)
 
 let copiedTimer: ReturnType<typeof setTimeout> | null = null
+
+// Reactive so it stays current if the user opens Sanitize Layout, fixes issues,
+// and comes back — no manual re-scan needed. Sums every rule's count across both
+// kinds (redundancy + normalization) purely as a "there's something here" signal;
+// this is not shown anywhere alongside a breakdown, so the two scales mixing is fine.
+const sanitizeIssueCount = computed(() =>
+  scanLayout(keyboardStore.keys).reduce((sum, result) => sum + result.count, 0),
+)
+
+// Sends the user to fix things up rather than blocking them — Create short link
+// still works with issues present, this is a nudge, not a gate.
+const openSanitizeTool = () => {
+  layoutEditorSettingsStore.showSanitizeToolPanel = true
+  close()
+}
 
 const modalTitle = computed(() => {
   if (stage.value === 'done') return 'Your short link'
@@ -285,7 +335,10 @@ const openForCurrentLayout = async () => {
     return
   }
   reset()
-  if (shortLinksStore.skipWarning) {
+  // A dirty layout still needs the user to look at the consent screen even with
+  // skipWarning on — that preference means "I know the privacy tradeoffs," not
+  // "never tell me about anything," and the sanitize nudge is the latter.
+  if (shortLinksStore.skipWarning && sanitizeIssueCount.value === 0) {
     silentCreate.value = true
     await confirm()
   }

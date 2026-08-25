@@ -19,6 +19,7 @@ vi.mock('@/utils/supabase-loader', () => ({
 import ShortLinkConfirmModal from '../ShortLinkConfirmModal.vue'
 import { useKeyboardStore } from '@/stores/keyboard'
 import { useShortLinksStore } from '@/stores/short-links'
+import { useLayoutEditorSettingsStore } from '@/stores/layoutEditorSettings'
 
 /** Minimal stand-in: create_short_link is the only call the store makes. */
 function fakeClient(id = '7kQ2mBx9Lp') {
@@ -154,5 +155,108 @@ describe('ShortLinkConfirmModal', () => {
     await wrapper.find('[data-testid="short-link-cancel"]').trigger('click')
 
     expect(useShortLinksStore().skipWarning).toBe(false)
+  })
+
+  describe('sanitize nudge', () => {
+    it('does not show a sanitize warning for a clean layout', async () => {
+      const wrapper = mount(ShortLinkConfirmModal, { props: { isVisible: false } })
+      await wrapper.setProps({ isVisible: true })
+
+      expect(wrapper.find('[data-testid="short-link-sanitize-warning"]').exists()).toBe(false)
+    })
+
+    it('warns when the layout has a sanitize issue, without blocking creation', async () => {
+      const keyboardStore = useKeyboardStore()
+      // Stale rotation origin: origin set on a key that isn't rotated.
+      keyboardStore.addKey({ rotation_x: 5, rotation_y: 5, rotation_angle: 0 })
+
+      const wrapper = mount(ShortLinkConfirmModal, { props: { isVisible: false } })
+      await wrapper.setProps({ isVisible: true })
+
+      const warning = wrapper.find('[data-testid="short-link-sanitize-warning"]')
+      expect(warning.exists()).toBe(true)
+      expect(warning.text()).toContain('1 item')
+
+      // Proceeding anyway still works — this is a nudge, not a gate.
+      await wrapper.find('[data-testid="short-link-confirm"]').trigger('click')
+      await flushPromises()
+      expect(wrapper.find('[data-testid="short-link-url"]').exists()).toBe(true)
+    })
+
+    it('opening the sanitize tool from the nudge closes the modal and raises the shared flag', async () => {
+      const keyboardStore = useKeyboardStore()
+      const layoutEditorSettingsStore = useLayoutEditorSettingsStore()
+      keyboardStore.addKey({ rotation_x: 5, rotation_y: 5, rotation_angle: 0 })
+
+      const wrapper = mount(ShortLinkConfirmModal, { props: { isVisible: false } })
+      await wrapper.setProps({ isVisible: true })
+
+      expect(layoutEditorSettingsStore.showSanitizeToolPanel).toBe(false)
+      await wrapper.find('[data-testid="short-link-open-sanitize"]').trigger('click')
+
+      expect(layoutEditorSettingsStore.showSanitizeToolPanel).toBe(true)
+      // Closing is delegated to the parent via the 'close' event, same as Cancel/X.
+      expect(wrapper.emitted('close')).toBeTruthy()
+    })
+
+    // Regression: skipWarning previously bypassed the whole consent screen via the
+    // silent auto-confirm path, so a dirty layout could be shared with no warning at
+    // all once the user had dismissed the privacy notice once.
+    it('still surfaces the sanitize warning even when "don\'t show again" is on', async () => {
+      const keyboardStore = useKeyboardStore()
+      const shortLinksStore = useShortLinksStore()
+      shortLinksStore.skipWarning = true
+      keyboardStore.addKey({ rotation_x: 5, rotation_y: 5, rotation_angle: 0 })
+
+      const wrapper = mount(ShortLinkConfirmModal, { props: { isVisible: false } })
+      await wrapper.setProps({ isVisible: true })
+      await flushPromises()
+
+      // Must not have silently created the link.
+      expect(wrapper.find('[data-testid="short-link-url"]').exists()).toBe(false)
+
+      const warning = wrapper.find('[data-testid="short-link-sanitize-warning"]')
+      expect(warning.exists()).toBe(true)
+
+      // The already-dismissed privacy explanation and checkbox stay hidden.
+      expect(wrapper.text()).not.toContain('makes the design public')
+      expect(wrapper.find('[data-testid="short-link-dont-show-again"]').exists()).toBe(false)
+
+      // Create anyway still works from here.
+      await wrapper.find('[data-testid="short-link-confirm"]').trigger('click')
+      await flushPromises()
+      expect(wrapper.find('[data-testid="short-link-url"]').exists()).toBe(true)
+    })
+
+    it('still goes silent when "don\'t show again" is on and the layout is clean', async () => {
+      const shortLinksStore = useShortLinksStore()
+      shortLinksStore.skipWarning = true
+
+      const wrapper = mount(ShortLinkConfirmModal, { props: { isVisible: false } })
+      await wrapper.setProps({ isVisible: true })
+      await flushPromises()
+
+      expect(wrapper.find('[data-testid="short-link-url"]').exists()).toBe(true)
+      expect(wrapper.find('[data-testid="short-link-sanitize-warning"]').exists()).toBe(false)
+    })
+  })
+
+  it('flips the copy button to btn-primary (not the unthemed btn-success) once copied', async () => {
+    Object.assign(navigator, {
+      clipboard: { writeText: vi.fn().mockResolvedValue(undefined) },
+    })
+    const wrapper = mount(ShortLinkConfirmModal, { props: { isVisible: false } })
+    await wrapper.setProps({ isVisible: true })
+    await wrapper.find('[data-testid="short-link-confirm"]').trigger('click')
+    await flushPromises()
+
+    const copyBtn = wrapper.find('[data-testid="short-link-copy"]')
+    expect(copyBtn.classes()).toContain('btn-outline-secondary')
+
+    await copyBtn.trigger('click')
+    await flushPromises()
+
+    expect(copyBtn.classes()).toContain('btn-primary')
+    expect(copyBtn.classes()).not.toContain('btn-success')
   })
 })

@@ -26,6 +26,11 @@ export const useLayoutEditorSettingsStore = defineStore('layoutEditorSettings', 
   const showGrid = ref<boolean>(saved.showGrid ?? false)
   const highlightColor = ref<string>(saved.highlightColor ?? DEFAULT_HIGHLIGHT_COLOR)
 
+  // Not persisted — just a shared toggle so panels/modals outside CanvasToolbar
+  // (e.g. ShortLinkConfirmModal's sanitize-before-sharing nudge) can open the
+  // Sanitize Layout panel without owning its visibility state themselves.
+  const showSanitizeToolPanel = ref(false)
+
   watch(showGrid, (val) => {
     const current = loadFromStorage()
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...current, showGrid: val }))
@@ -36,5 +41,5 @@ export const useLayoutEditorSettingsStore = defineStore('layoutEditorSettings', 
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...current, highlightColor: val }))
   })
 
-  return { showGrid, highlightColor }
+  return { showGrid, highlightColor, showSanitizeToolPanel }
 })
