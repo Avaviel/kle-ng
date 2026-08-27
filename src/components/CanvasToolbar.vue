@@ -107,18 +107,26 @@
     :visible="layoutEditorSettingsStore.showSanitizeToolPanel"
     @close="layoutEditorSettingsStore.showSanitizeToolPanel = false"
   />
+
+  <!-- Character Picker Modal -->
+  <CharacterPickerModal
+    :visible="characterPickerStore.isVisible"
+    @close="characterPickerStore.close()"
+  />
 </template>
 
 <script setup lang="ts">
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useKeyboardStore } from '@/stores/keyboard'
 import { useLayoutEditorSettingsStore } from '@/stores/layoutEditorSettings'
+import { useCharacterPickerStore } from '@/stores/characterPicker'
 import { SPECIAL_KEYS, type SpecialKeyTemplate } from '@/data/specialKeys'
 import LegendToolsPanel from './LegendToolsPanel.vue'
 import RotationOriginsPanel from './RotationOriginsPanel.vue'
 import ThemeToolsPanel from './ThemeToolsPanel.vue'
 import MatrixCoordinatesModal from './MatrixCoordinatesModal.vue'
 import SanitizeToolPanel from './SanitizeToolPanel.vue'
+import CharacterPickerModal from './CharacterPickerModal.vue'
 import ToolbarEditSection from './ToolbarEditSection.vue'
 import ToolbarToolsSection from './ToolbarToolsSection.vue'
 import ToolbarHistorySection from './ToolbarHistorySection.vue'
@@ -126,6 +134,7 @@ import ToolbarHistorySection from './ToolbarHistorySection.vue'
 // Store
 const keyboardStore = useKeyboardStore()
 const layoutEditorSettingsStore = useLayoutEditorSettingsStore()
+const characterPickerStore = useCharacterPickerStore()
 
 // Special keys data
 const specialKeys = SPECIAL_KEYS
@@ -206,6 +215,15 @@ const extraTools = computed((): ExtraTool[] => {
       disabled: isPreview,
       action: () => {
         layoutEditorSettingsStore.showSanitizeToolPanel = true
+      },
+    },
+    {
+      id: 'character-picker',
+      name: 'Character Picker',
+      description: 'Insert a named symbol or character into the active label field',
+      disabled: isPreview,
+      action: () => {
+        characterPickerStore.open()
       },
     },
   ]

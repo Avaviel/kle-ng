@@ -27,7 +27,8 @@
     "supabase:reset": "supabase db reset",
     "supabase:status": "supabase status",
     "lint": "eslint . --fix",
-    "format": "prettier --log-level silent --write src/ e2e/ docs/"
+    "format": "prettier --log-level silent --write src/ e2e/ docs/",
+    "generate:character-entities": "node scripts/generate-character-entities.mjs"
   },
   "dependencies": {
     "@adamws/kle-serial": "github:adamws/kle-serial2#v0.19.0",
@@ -72,6 +73,7 @@
     "@vue/eslint-config-typescript": "^14.9.0",
     "@vue/test-utils": "^2.4.11",
     "@vue/tsconfig": "^0.9.1",
+    "character-entities": "^2.0.2",
     "dxf-json": "^0.14.1",
     "eslint": "^10.9.0",
     "eslint-plugin-playwright": "^2.11.0",
@@ -83,6 +85,7 @@
     "sass": "^1.103.1",
     "supabase": "^2.115.0",
     "typescript": "~6.0.3",
+    "unicode-blocks": "^2.0.4",
     "vite": "^8.2.2",
     "vite-plugin-vue-devtools": "^8.2.1",
     "vite-svg-loader": "^5.1.1",

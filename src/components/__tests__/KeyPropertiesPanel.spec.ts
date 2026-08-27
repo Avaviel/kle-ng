@@ -4,6 +4,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import KeyPropertiesPanel from '../KeyPropertiesPanel.vue'
 import ColorPicker from '../ColorPicker.vue'
 import { useKeyboardStore } from '@/stores/keyboard'
+import { useCharacterPickerStore } from '@/stores/characterPicker'
 import { Key } from '@adamws/kle-serial'
 
 // Mock localStorage
@@ -1029,6 +1030,68 @@ describe('KeyPropertiesPanel', () => {
 
       // Fieldset should now be disabled
       expect(fieldset.attributes('disabled')).toBeDefined()
+    })
+  })
+
+  describe('Character Picker Integration', () => {
+    it('reports the focused top-label index and cursor position on focus', async () => {
+      store.addKey()
+      const wrapper = mount(KeyPropertiesPanel, { global: { plugins: [pinia] } })
+      await wrapper.vm.$nextTick()
+
+      const characterPickerStore = useCharacterPickerStore()
+
+      const topGrid = wrapper.get('[data-testid="labels-grid"]')
+      const input = topGrid.get('input[title="Top Left"]')
+      const inputEl = input.element as HTMLInputElement
+      inputEl.value = 'ab'
+      inputEl.setSelectionRange(1, 1)
+
+      await input.trigger('focus')
+
+      expect(characterPickerStore.activeLabelIndex).toBe(0)
+      expect(characterPickerStore.activeCursorPos).toBe(1)
+    })
+
+    it('reports the focused front-label index (9-11), distinct from the top-label grid', async () => {
+      store.addKey()
+      const wrapper = mount(KeyPropertiesPanel, { global: { plugins: [pinia] } })
+      await wrapper.vm.$nextTick()
+
+      const characterPickerStore = useCharacterPickerStore()
+
+      // Front labels reuse the top-labels' "Top Left"/"Top Center"/"Top Right"
+      // titles, so scope by the second `.labels-grid` container to reach index 9.
+      const frontGrid = wrapper.findAll('.labels-grid')[1]
+      expect(frontGrid).toBeDefined()
+      const input = frontGrid!.get('input[title="Top Left"]')
+      const inputEl = input.element as HTMLInputElement
+      inputEl.value = 'xyz'
+      inputEl.setSelectionRange(2, 2)
+
+      await input.trigger('focus')
+
+      expect(characterPickerStore.activeLabelIndex).toBe(9)
+      expect(characterPickerStore.activeCursorPos).toBe(2)
+    })
+
+    it('updates the cursor position on keyup without changing the active index', async () => {
+      store.addKey()
+      const wrapper = mount(KeyPropertiesPanel, { global: { plugins: [pinia] } })
+      await wrapper.vm.$nextTick()
+
+      const characterPickerStore = useCharacterPickerStore()
+
+      const topGrid = wrapper.get('[data-testid="labels-grid"]')
+      const input = topGrid.get('input[title="Top Center"]')
+      const inputEl = input.element as HTMLInputElement
+      inputEl.value = 'hello'
+      inputEl.setSelectionRange(5, 5)
+
+      await input.trigger('keyup')
+
+      expect(characterPickerStore.activeLabelIndex).toBe(1)
+      expect(characterPickerStore.activeCursorPos).toBe(5)
     })
   })
 })

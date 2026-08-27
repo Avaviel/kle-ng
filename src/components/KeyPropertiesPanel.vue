@@ -346,6 +346,10 @@
                     <input
                       v-model="labels[0]"
                       @input="updateLabel(0)"
+                      @focus="handleLabelActivity(0, $event)"
+                      @click="handleLabelActivity(0, $event)"
+                      @keyup="handleLabelActivity(0, $event)"
+                      @select="handleLabelActivity(0, $event)"
                       type="text"
                       class="form-control form-control-sm text-center"
                       title="Top Left"
@@ -363,6 +367,10 @@
                     <input
                       v-model="labels[1]"
                       @input="updateLabel(1)"
+                      @focus="handleLabelActivity(1, $event)"
+                      @click="handleLabelActivity(1, $event)"
+                      @keyup="handleLabelActivity(1, $event)"
+                      @select="handleLabelActivity(1, $event)"
                       type="text"
                       class="form-control form-control-sm text-center"
                       title="Top Center"
@@ -380,6 +388,10 @@
                     <input
                       v-model="labels[2]"
                       @input="updateLabel(2)"
+                      @focus="handleLabelActivity(2, $event)"
+                      @click="handleLabelActivity(2, $event)"
+                      @keyup="handleLabelActivity(2, $event)"
+                      @select="handleLabelActivity(2, $event)"
                       type="text"
                       class="form-control form-control-sm text-center"
                       title="Top Right"
@@ -399,6 +411,10 @@
                     <input
                       v-model="labels[3]"
                       @input="updateLabel(3)"
+                      @focus="handleLabelActivity(3, $event)"
+                      @click="handleLabelActivity(3, $event)"
+                      @keyup="handleLabelActivity(3, $event)"
+                      @select="handleLabelActivity(3, $event)"
                       type="text"
                       class="form-control form-control-sm text-center"
                       title="Center Left"
@@ -416,6 +432,10 @@
                     <input
                       v-model="labels[4]"
                       @input="updateLabel(4)"
+                      @focus="handleLabelActivity(4, $event)"
+                      @click="handleLabelActivity(4, $event)"
+                      @keyup="handleLabelActivity(4, $event)"
+                      @select="handleLabelActivity(4, $event)"
                       type="text"
                       class="form-control form-control-sm text-center"
                       title="Center (Main)"
@@ -433,6 +453,10 @@
                     <input
                       v-model="labels[5]"
                       @input="updateLabel(5)"
+                      @focus="handleLabelActivity(5, $event)"
+                      @click="handleLabelActivity(5, $event)"
+                      @keyup="handleLabelActivity(5, $event)"
+                      @select="handleLabelActivity(5, $event)"
                       type="text"
                       class="form-control form-control-sm text-center"
                       title="Center Right"
@@ -452,6 +476,10 @@
                     <input
                       v-model="labels[6]"
                       @input="updateLabel(6)"
+                      @focus="handleLabelActivity(6, $event)"
+                      @click="handleLabelActivity(6, $event)"
+                      @keyup="handleLabelActivity(6, $event)"
+                      @select="handleLabelActivity(6, $event)"
                       type="text"
                       class="form-control form-control-sm text-center"
                       title="Bottom Left"
@@ -469,6 +497,10 @@
                     <input
                       v-model="labels[7]"
                       @input="updateLabel(7)"
+                      @focus="handleLabelActivity(7, $event)"
+                      @click="handleLabelActivity(7, $event)"
+                      @keyup="handleLabelActivity(7, $event)"
+                      @select="handleLabelActivity(7, $event)"
                       type="text"
                       class="form-control form-control-sm text-center"
                       title="Bottom Center"
@@ -486,6 +518,10 @@
                     <input
                       v-model="labels[8]"
                       @input="updateLabel(8)"
+                      @focus="handleLabelActivity(8, $event)"
+                      @click="handleLabelActivity(8, $event)"
+                      @keyup="handleLabelActivity(8, $event)"
+                      @select="handleLabelActivity(8, $event)"
                       type="text"
                       class="form-control form-control-sm text-center"
                       title="Bottom Right"
@@ -520,6 +556,10 @@
                     <input
                       v-model="labels[9]"
                       @input="updateLabel(9)"
+                      @focus="handleLabelActivity(9, $event)"
+                      @click="handleLabelActivity(9, $event)"
+                      @keyup="handleLabelActivity(9, $event)"
+                      @select="handleLabelActivity(9, $event)"
                       type="text"
                       class="form-control form-control-sm text-center"
                       title="Top Left"
@@ -537,6 +577,10 @@
                     <input
                       v-model="labels[10]"
                       @input="updateLabel(10)"
+                      @focus="handleLabelActivity(10, $event)"
+                      @click="handleLabelActivity(10, $event)"
+                      @keyup="handleLabelActivity(10, $event)"
+                      @select="handleLabelActivity(10, $event)"
                       type="text"
                       class="form-control form-control-sm text-center"
                       title="Top Center"
@@ -554,6 +598,10 @@
                     <input
                       v-model="labels[11]"
                       @input="updateLabel(11)"
+                      @focus="handleLabelActivity(11, $event)"
+                      @click="handleLabelActivity(11, $event)"
+                      @keyup="handleLabelActivity(11, $event)"
+                      @select="handleLabelActivity(11, $event)"
                       type="text"
                       class="form-control form-control-sm text-center"
                       title="Top Right"
@@ -930,6 +978,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from 'vue'
 import { useKeyboardStore } from '@/stores/keyboard'
+import { useCharacterPickerStore } from '@/stores/characterPicker'
 import ColorPicker from './ColorPicker.vue'
 import CustomNumberInput from './CustomNumberInput.vue'
 import { D } from '@/utils/decimal-math'
@@ -941,6 +990,7 @@ import ManufacturingHelpModal from './ManufacturingHelpModal.vue'
 import BiQuestionCircle from 'bootstrap-icons/icons/question-circle.svg'
 
 const keyboardStore = useKeyboardStore()
+const characterPickerStore = useCharacterPickerStore()
 
 // Helper function to format numbers with maximum 6 decimal places
 const formatNumber = (value: number): number => {
@@ -1256,6 +1306,13 @@ const updateLabel = (index: number) => {
   })
 
   keyboardStore.saveState()
+}
+
+// Tracks which label input the Character Picker should insert into — see
+// characterPicker store.
+const handleLabelActivity = (index: number, event: Event) => {
+  const target = event.target as HTMLInputElement
+  characterPickerStore.setActiveLabel(index, target.selectionStart)
 }
 
 // Live preview text color update (no state save) — fires on every keystroke
