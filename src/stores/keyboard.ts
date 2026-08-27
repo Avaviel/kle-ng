@@ -42,7 +42,10 @@ import { usePlateGeneratorStore } from './plateGenerator'
 import { svgCache } from '../utils/caches/SVGCache'
 import { parseCache } from '../utils/caches/ParseCache'
 import { imageCache } from '../utils/caches/ImageCache'
-import { validateMatrixDuplicates } from '../utils/matrix-validation'
+import {
+  validateMatrixDuplicates,
+  getKeysWithMalformedLayoutOptionLabel,
+} from '../utils/matrix-validation'
 import { getLayoutOptionGroups } from '../utils/layout-options'
 
 export { Key, Keyboard, KeyboardMetadata, type Array12 } from '@adamws/kle-serial'
@@ -1583,6 +1586,18 @@ export const useKeyboardStore = defineStore('keyboard', () => {
     return !matrixDuplicateValidation.value.isValid
   })
 
+  // Keys whose labels[8] is non-empty but not a valid "option,choice" value.
+  // kbplacer crashes on PCB generation if it encounters such a label, even
+  // when the key's matrix position (labels[0]) is otherwise valid and unique.
+  const malformedLayoutOptionKeys = computed(() => {
+    if (!isViaAnnotated.value) return []
+    return getKeysWithMalformedLayoutOptionLabel(keys.value)
+  })
+
+  const hasMalformedLayoutOptionLabels = computed((): boolean => {
+    return malformedLayoutOptionKeys.value.length > 0
+  })
+
   // Matrix coordinates functionality
   const addMatrixCoordinates = () => {
     // Save state before making changes
@@ -1791,6 +1806,8 @@ export const useKeyboardStore = defineStore('keyboard', () => {
     isViaAnnotated,
     matrixDuplicateValidation,
     hasInvalidMatrixDuplicates,
+    malformedLayoutOptionKeys,
+    hasMalformedLayoutOptionLabels,
 
     // Layout preview mode
     displayLayoutChoices,

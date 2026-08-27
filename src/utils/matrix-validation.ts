@@ -257,6 +257,49 @@ export function validateMatrixDuplicates(keys: Key[]): DuplicateValidationResult
 }
 
 /**
+ * Entry describing a key whose labels[8] is non-empty but doesn't match the
+ * "option,choice" format kbplacer expects there.
+ */
+export interface MalformedLayoutOptionEntry {
+  key: Key
+  position: string // "row,col" from labels[0], or "?" if unset
+  rawLabel: string
+}
+
+/**
+ * Find keys with a malformed layout-option label.
+ *
+ * kbplacer reserves labels[8] (bottom-right) for an optional "option,choice"
+ * annotation and requires it be either empty or match `\d+,\d+`. Text that
+ * lands there by mistake (e.g. a legend pushed one slot over by an
+ * inconsistent number of blank lines) makes kbplacer's PCB generation crash
+ * with an IndexError, even when the key's matrix position (labels[0]) is
+ * perfectly valid and unique. validateMatrixDuplicates only inspects
+ * labels[8] for keys that share a matrix position, so this check is needed
+ * to catch malformed labels[8] on keys with a unique position too.
+ *
+ * @param keys - Array of keys to check
+ * @returns Entries for keys with a non-empty, non-"option,choice" labels[8]
+ */
+export function getKeysWithMalformedLayoutOptionLabel(keys: Key[]): MalformedLayoutOptionEntry[] {
+  const result: MalformedLayoutOptionEntry[] = []
+  keys.forEach((key) => {
+    if (key.ghost || key.decal) return
+    const label = key.labels[8]
+    if (!label || typeof label !== 'string') return
+    const trimmed = label.trim()
+    if (!trimmed) return
+    if (parseOptionChoice(key) !== null) return // valid "option,choice" format
+
+    const coords = parseMatrixCoordinates(key)
+    const position =
+      coords.row !== null && coords.col !== null ? `${coords.row},${coords.col}` : '?'
+    result.push({ key, position, rawLabel: trimmed })
+  })
+  return result
+}
+
+/**
  * Get all keys belonging to the "default layout" per VIA spec
  * Default layout consists of:
  * - Keys without option,choice label (they are always shown)

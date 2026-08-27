@@ -9,8 +9,13 @@ const pcbStore = usePcbGeneratorStore()
 const { taskStatus, isTaskActive, isBackendAvailable, workerStatusError } = storeToRefs(pcbStore)
 
 const keyboardStore = useKeyboardStore()
-const { isViaAnnotated, hasInvalidMatrixDuplicates, matrixDuplicateValidation } =
-  storeToRefs(keyboardStore)
+const {
+  isViaAnnotated,
+  hasInvalidMatrixDuplicates,
+  matrixDuplicateValidation,
+  hasMalformedLayoutOptionLabels,
+  malformedLayoutOptionKeys,
+} = storeToRefs(keyboardStore)
 
 const errorMessage = ref<string | null>(null)
 const isSubmitting = ref(false)
@@ -24,7 +29,8 @@ const isGenerateDisabled = computed(
     isTaskActive.value ||
     !isBackendAvailable.value ||
     !isViaAnnotated.value ||
-    hasInvalidMatrixDuplicates.value,
+    hasInvalidMatrixDuplicates.value ||
+    hasMalformedLayoutOptionLabels.value,
 )
 
 const buttonTooltip = computed(() => {
@@ -33,6 +39,9 @@ const buttonTooltip = computed(() => {
   }
   if (hasInvalidMatrixDuplicates.value) {
     return 'Layout has duplicate matrix positions without option,choice labels'
+  }
+  if (hasMalformedLayoutOptionLabels.value) {
+    return 'Layout has invalid layout-option labels'
   }
   if (!isBackendAvailable.value) {
     if (workerStatusError.value) {
@@ -50,6 +59,19 @@ const duplicatePositions = computed(() => {
   const validation = matrixDuplicateValidation.value
   if (!validation?.duplicatesWithoutOption) return []
   return validation.duplicatesWithoutOption.map((d) => d.position)
+})
+
+// Summary of keys with malformed layout-option labels, truncated so the
+// warning stays readable when many keys are affected.
+const MAX_MALFORMED_LABELS_SHOWN = 8
+const malformedLayoutOptionSummary = computed(() => {
+  const entries = malformedLayoutOptionKeys.value
+  const shown = entries
+    .slice(0, MAX_MALFORMED_LABELS_SHOWN)
+    .map((e) => `${e.position} ("${e.rawLabel}")`)
+    .join(', ')
+  const remaining = entries.length - MAX_MALFORMED_LABELS_SHOWN
+  return remaining > 0 ? `${shown}, ...and ${remaining} more` : shown
 })
 
 async function handleGeneratePcb() {
@@ -139,6 +161,21 @@ function handleNewTask() {
         Per VIA spec, keys sharing a matrix position must have
         <code>option,choice</code> labels in the bottom-right position. Use
         <strong>Tools &rarr; Add Switch Matrix Coordinates</strong> to fix.
+      </small>
+    </div>
+
+    <!-- Malformed Layout-Option Label Warning -->
+    <div
+      v-if="isViaAnnotated && hasMalformedLayoutOptionLabels && showGenerateButton"
+      class="alert alert-warning py-2 mt-2 mb-0"
+      role="alert"
+    >
+      <small>
+        <strong>Invalid layout-option labels detected:</strong>
+        {{ malformedLayoutOptionSummary }}
+        <br />
+        Edit the key labels so the legend is in the front-left position and the bottom-right
+        position is empty or a valid <code>option,choice</code> value.
       </small>
     </div>
   </div>

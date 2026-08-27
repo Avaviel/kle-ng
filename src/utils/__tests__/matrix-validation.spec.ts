@@ -13,6 +13,7 @@ import {
   getKeyChoice,
   validateMatrixDuplicates,
   getDefaultLayoutKeys,
+  getKeysWithMalformedLayoutOptionLabel,
 } from '../matrix-validation'
 
 // Helper to create a key with specific labels
@@ -296,6 +297,66 @@ describe('Matrix Validation', () => {
       const result = validateMatrixDuplicates([keyA, keyB])
       expect(result.isValid).toBe(false)
       expect(result.duplicatesWithoutOption).toHaveLength(1)
+    })
+  })
+
+  describe('getKeysWithMalformedLayoutOptionLabel', () => {
+    it('should flag a key whose labels[8] is stray legend text (no comma)', () => {
+      // Reproduces bug when legend text landed in the layout-option slot.
+      const key = createKey('0,0', 'Esc')
+
+      const result = getKeysWithMalformedLayoutOptionLabel([key])
+
+      expect(result).toHaveLength(1)
+      expect(result[0]?.position).toBe('0,0')
+      expect(result[0]?.rawLabel).toBe('Esc')
+    })
+
+    it('should not flag a valid option,choice label', () => {
+      const key = createKey('0,0', '1,0')
+
+      expect(getKeysWithMalformedLayoutOptionLabel([key])).toHaveLength(0)
+    })
+
+    it('should not flag an empty labels[8]', () => {
+      const key = createKey('0,0', '')
+
+      expect(getKeysWithMalformedLayoutOptionLabel([key])).toHaveLength(0)
+    })
+
+    it('should flag malformed labels[8] even when matrix position is unique (not a duplicate)', () => {
+      const keys = [createKey('0,0', 'Esc'), createKey('0,1', 'F1'), createKey('1,0')]
+
+      const result = getKeysWithMalformedLayoutOptionLabel(keys)
+
+      expect(result).toHaveLength(2)
+      expect(result.map((e) => e.position)).toEqual(['0,0', '0,1'])
+      expect(result.map((e) => e.rawLabel)).toEqual(['Esc', 'F1'])
+    })
+
+    it('should report position as "?" when labels[0] is not a valid matrix coordinate', () => {
+      const key = createKey('', 'Esc')
+
+      const result = getKeysWithMalformedLayoutOptionLabel([key])
+
+      expect(result).toHaveLength(1)
+      expect(result[0]?.position).toBe('?')
+    })
+
+    it('should exclude ghost keys', () => {
+      const key = createKey('0,0', 'Esc', { ghost: true })
+
+      expect(getKeysWithMalformedLayoutOptionLabel([key])).toHaveLength(0)
+    })
+
+    it('should exclude decal keys', () => {
+      const key = createKey('0,0', 'Esc', { decal: true })
+
+      expect(getKeysWithMalformedLayoutOptionLabel([key])).toHaveLength(0)
+    })
+
+    it('should return empty array for empty keys array', () => {
+      expect(getKeysWithMalformedLayoutOptionLabel([])).toHaveLength(0)
     })
   })
 
