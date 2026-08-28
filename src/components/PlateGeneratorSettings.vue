@@ -391,6 +391,10 @@ const customHeightInputClass = computed(() =>
   padding: 4px;
 }
 
+.form-check-label.form-label-sm {
+  margin-bottom: 0;
+}
+
 /* Ensure consistent spacing */
 .mb-2:last-child {
   margin-bottom: 0 !important;
