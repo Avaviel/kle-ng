@@ -435,6 +435,7 @@ const renderOptions = computed<RenderOptions>(() => ({
   showGrid: layoutEditorSettingsStore.showGrid,
   gridStep: keyboardStore.moveStep,
   highlightColor: layoutEditorSettingsStore.highlightColor,
+  allowLabelOverflow: layoutEditorSettingsStore.allowLabelOverflow,
 }))
 
 // Watch for layout changes and clear matrix overlay
@@ -688,6 +689,7 @@ watch(
   () => [
     layoutEditorSettingsStore.showGrid,
     layoutEditorSettingsStore.highlightColor,
+    layoutEditorSettingsStore.allowLabelOverflow,
     keyboardStore.moveStep,
   ],
   () => {

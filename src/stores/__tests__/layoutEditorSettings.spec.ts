@@ -56,4 +56,26 @@ describe('layoutEditorSettings store', () => {
     const store = useLayoutEditorSettingsStore()
     expect(store.showGrid).toBe(false)
   })
+
+  it('defaults allowLabelOverflow to false when no saved data', () => {
+    const store = useLayoutEditorSettingsStore()
+    expect(store.allowLabelOverflow).toBe(false)
+  })
+
+  it('loads allowLabelOverflow true from localStorage', () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ allowLabelOverflow: true }))
+    setActivePinia(createPinia())
+    const store = useLayoutEditorSettingsStore()
+    expect(store.allowLabelOverflow).toBe(true)
+  })
+
+  it('persists allowLabelOverflow change to localStorage', async () => {
+    const store = useLayoutEditorSettingsStore()
+    store.allowLabelOverflow = true
+
+    await Promise.resolve()
+
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}')
+    expect(saved.allowLabelOverflow).toBe(true)
+  })
 })

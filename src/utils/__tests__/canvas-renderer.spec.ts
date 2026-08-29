@@ -842,6 +842,37 @@ describe('CanvasRenderer', () => {
       // Should have rendered something (even if truncated)
       expect(mockContext.fillText).toHaveBeenCalled()
     })
+
+    it('should render the full word without ellipsis when allowLabelOverflow is enabled', () => {
+      mockContext.measureText.mockImplementation((text: string) => ({
+        width: text.length * 10,
+      }))
+
+      const longWord = 'Supercalifragilisticexpialidocious'
+      const keyWithVeryLongWord = {
+        ...new Key(),
+        x: 0,
+        y: 0,
+        width: 0.75,
+        labels: ['', '', '', '', longWord, '', '', '', '', '', '', ''],
+      } as Key
+
+      const keys = [keyWithVeryLongWord]
+      const selectedKeys: Key[] = []
+      const metadata = new KeyboardMetadata()
+
+      const overflowRenderer = new CanvasRenderer(mockCanvas, {
+        unit: 54,
+        background: '#f0f0f0',
+        allowLabelOverflow: true,
+      })
+
+      overflowRenderer.render(keys, selectedKeys, metadata)
+
+      const renderedTexts = mockContext.fillText.mock.calls.map((call) => call[0] as string)
+      expect(renderedTexts).toContain(longWord)
+      expect(renderedTexts.some((text) => text.includes('...'))).toBe(false)
+    })
   })
 
   describe('link tracker isolation', () => {

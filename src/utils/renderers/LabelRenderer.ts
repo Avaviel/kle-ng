@@ -38,6 +38,11 @@ export interface LabelRenderOptions {
   unit: number
   /** Font family to use for rendering text labels */
   fontFamily?: string
+  /**
+   * When true, labels that don't fit within the key are rendered as-is
+   * instead of being truncated with an ellipsis. Off by default.
+   */
+  allowOverflow?: boolean
 }
 
 /**
@@ -79,6 +84,14 @@ export interface LabelRenderOptions {
  */
 export class LabelRenderer {
   /**
+   * Whether overflowing labels should render in full instead of being
+   * truncated with an ellipsis. Set at the start of each top-level draw
+   * call and read by {@link truncateWithEllipsis} for the duration of that
+   * (synchronous) render.
+   */
+  private allowOverflow = false
+
+  /**
    * @param tracker - Where clickable link bounding boxes are registered.
    *   Defaults to the shared `linkTracker` singleton.
    */
@@ -107,6 +120,7 @@ export class LabelRenderer {
     onLoadCallback?: () => void,
     hoveredLinkHref?: string | null,
   ): void {
+    this.allowOverflow = options.allowOverflow ?? false
     key.labels.forEach((label, index) => {
       if (!label || index >= LABEL_POSITIONS.length) return
 
@@ -233,6 +247,7 @@ export class LabelRenderer {
     onLoadCallback?: () => void,
     hoveredLinkHref?: string | null,
   ): void {
+    this.allowOverflow = options.allowOverflow ?? false
     key.labels.forEach((label, index) => {
       if (!label || index >= LABEL_POSITIONS.length) return
 
@@ -1345,6 +1360,7 @@ export class LabelRenderer {
 
   /**
    * Truncate text with ellipsis to fit within maxWidth.
+   * No-op (returns the original text) when {@link allowOverflow} is set.
    *
    * @param ctx - Canvas rendering context
    * @param text - Text to truncate
@@ -1356,7 +1372,7 @@ export class LabelRenderer {
     text: string,
     maxWidth: number,
   ): string {
-    if (ctx.measureText(text).width <= maxWidth) {
+    if (ctx.measureText(text).width <= maxWidth || this.allowOverflow) {
       return text
     }
 

@@ -297,9 +297,13 @@ class CanvasRenderer {
 interface RenderOptions {
   unit: number // Pixel size of 1U (typically 54px)
   background: string // Background color (e.g., "#f0f0f0")
-  showGrid?: boolean // Reserved for future grid feature
+  showGrid?: boolean // Draw the alignment grid (Layout Editor setting)
+  gridStep?: number // Grid spacing, in units (keyboardStore.moveStep)
+  highlightColor?: string // Selection border color (Layout Editor setting)
   scale?: number // DPI scaling factor
   fontFamily?: string // Custom font family for labels
+  allowLabelOverflow?: boolean // Render overlong labels in full instead of
+  // ellipsis-truncating them (Layout Editor setting, off by default)
 }
 ```
 
@@ -642,7 +646,10 @@ Vertical alignment (by row):
 
 1. **Single-line fitting**: If text fits in `availableWidth`, render directly
 2. **Word wrapping**: Split by spaces, wrap when line exceeds width
-3. **Overflow handling**: Truncate with ellipsis (`…`) if word too long
+3. **Overflow handling**: Truncate with ellipsis (`…`) if a single word is too wide to fit
+   on its own line — unless the "Allow label overflow" Layout Editor setting is on, in which
+   case the word renders in full and spills past the key's edge instead (see
+   [Allow Label Overflow Setting](#allow-label-overflow-setting))
 4. **Multi-line**: Respect line breaks from `<br>` tags
 5. **Max lines**: Calculate `Math.floor(availableHeight / lineHeight)`
 
@@ -2951,6 +2958,46 @@ click.
    own raster bounds, and therefore invisible no matter how far the panel was scrolled. The padding
    added for mirror modes was doubled (`mirrorPadding * 4` instead of `* 2`) so the canvas reliably
    contains the preview across the same axis-positioning range as before.
+
+---
+
+### Allow Label Overflow Setting
+
+Added a Layout Editor setting that lets overlong single-word labels render in full instead of
+being ellipsis-truncated. Off by default, so existing layouts render unchanged.
+
+**Modified files**:
+
+- `src/stores/layoutEditorSettings.ts` — new persisted `allowLabelOverflow` ref, same
+  localStorage-backed pattern as `showGrid`/`highlightColor`
+- `src/components/LayoutEditorSettingsPanel.vue` — new checkbox bound to the store
+- `src/utils/canvas-renderer.ts` — new `allowLabelOverflow` field on `RenderOptions`, forwarded to
+  `LabelRenderer` as `allowOverflow`
+- `src/utils/renderers/LabelRenderer.ts` — `truncateWithEllipsis()` returns the untruncated text
+  when the flag is set
+- `src/components/KeyboardCanvas.vue` — setting wired into `renderOptions` and the settings
+  re-render watcher
+
+**Key design decisions**:
+
+1. **A private instance field on `LabelRenderer`, not a threaded parameter** — `truncateWithEllipsis()`
+   sits several calls deep behind `drawKeyLabels()`/`drawRotaryEncoderLabels()`
+   (`drawWrappedNodes` → `wrapNodeLines` → `wrapSingleLine` → `truncateWithEllipsis`), and every one
+   of those private methods would need an extra parameter just to carry a single boolean to the
+   bottom of the chain. Both public entry points set `this.allowOverflow` from `options.allowOverflow`
+   before their (fully synchronous) render loop starts, so the field can't leak state between
+   unrelated renders — the same pattern the ownership note under [LinkTracker](#linktracker)
+   explicitly rejected for tracker references, but safe here because this flag is read-only
+   configuration for the current call, not mutable state shared across instances.
+
+2. **Only `truncateWithEllipsis()` changes** — the ellipsis path is the single call site where
+   overflow is currently resolved by cutting the label down (a lone word wider than `maxWidth` in
+   `wrapSingleLine()`). Word-wrapping by spaces, multi-line `<br>` splitting, and the
+   `maxLines` vertical clamp in `drawWrappedNodes()` are untouched; the setting only changes what
+   happens to a word that doesn't fit on its own line, not layout of anything else.
+
+3. **Off by default** — matches `showGrid`'s default and keeps existing exported/shared layouts
+   visually identical unless a user opts in.
 
 ---
 

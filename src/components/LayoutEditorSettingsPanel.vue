@@ -19,6 +19,15 @@
           <input id="setting-show-grid" type="checkbox" v-model="settingsStore.showGrid" />
         </div>
 
+        <label class="setting-label" for="setting-allow-label-overflow">Allow label overflow</label>
+        <div class="setting-control">
+          <input
+            id="setting-allow-label-overflow"
+            type="checkbox"
+            v-model="settingsStore.allowLabelOverflow"
+          />
+        </div>
+
         <label class="setting-label">Highlight Color</label>
         <div class="setting-control">
           <ColorPicker

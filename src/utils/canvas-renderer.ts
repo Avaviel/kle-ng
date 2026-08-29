@@ -21,6 +21,7 @@ export interface RenderOptions {
   highlightColor?: string
   scale?: number
   fontFamily?: string
+  allowLabelOverflow?: boolean
 }
 
 export interface KeyRenderParams {
@@ -267,6 +268,7 @@ export class CanvasRenderer {
     const labelOptions = {
       unit: this.options.unit,
       fontFamily: this.options.fontFamily,
+      allowOverflow: this.options.allowLabelOverflow,
     }
 
     const getImageFn = (url: string) => this.getImage(url)
