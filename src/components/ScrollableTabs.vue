@@ -112,6 +112,79 @@ function goNext() {
     scrollTrack(Math.min(props.tabs.length - props.visibleTabs, tabOffset.value + 1))
   }
 }
+
+// Mouse-swipe support: drag the track around with the mouse, then snap to
+// the nearest page/tab on release. Restricted to mouse (not touch/pen) since
+// kle-ng isn't meant for mobile use — real touch scrolling isn't needed.
+const isDragging = ref(false)
+let dragStartX = 0
+let dragStartScrollLeft = 0
+let dragMoved = false
+
+function onTrackPointerDown(e: PointerEvent) {
+  if (e.pointerType !== 'mouse' || e.button !== 0) return
+  const el = tabTrackRef.value
+  if (!el) return
+  isDragging.value = true
+  dragMoved = false
+  dragStartX = e.clientX
+  dragStartScrollLeft = el.scrollLeft
+}
+
+function onTrackPointerMove(e: PointerEvent) {
+  const el = tabTrackRef.value
+  if (!el || !isDragging.value) return
+  const dx = e.clientX - dragStartX
+  if (!dragMoved && Math.abs(dx) > 3) {
+    dragMoved = true
+    // Only capture once we know this is a drag, not a click — capturing
+    // unconditionally on pointerdown would retarget the click that follows
+    // a plain press-and-release to the track div instead of the button.
+    el.setPointerCapture(e.pointerId)
+  }
+  if (dragMoved) el.scrollLeft = dragStartScrollLeft - dx
+}
+
+function onTrackPointerUp(e: PointerEvent) {
+  if (!isDragging.value) return
+  isDragging.value = false
+  if (dragMoved) {
+    tabTrackRef.value?.releasePointerCapture(e.pointerId)
+    snapToNearest()
+  }
+}
+
+// After a drag, land on whichever page/tab the track was dragged closest to
+// rather than leaving it stopped mid-scroll.
+function snapToNearest() {
+  const el = tabTrackRef.value
+  if (!el) return
+
+  if (props.variableWidth) {
+    const buttons = tabButtons()
+    let idx = 0
+    for (let i = 0; i < buttons.length; i++) {
+      if ((buttons[i]?.offsetLeft ?? Infinity) <= el.scrollLeft + 1) idx = i
+    }
+    scrollToIndex(idx)
+    return
+  }
+
+  const tabWidth = el.offsetWidth / props.visibleTabs
+  const maxOffset = Math.max(0, props.tabs.length - props.visibleTabs)
+  const idx = Math.round(el.scrollLeft / tabWidth)
+  scrollTrack(Math.min(Math.max(idx, 0), maxOffset))
+}
+
+// Swallow the click that follows a drag so releasing over a tab button
+// doesn't also select it.
+function onTabClick(id: string) {
+  if (dragMoved) {
+    dragMoved = false
+    return
+  }
+  selectTab(id)
+}
 </script>
 
 <template>
@@ -129,7 +202,15 @@ function goNext() {
       </button>
 
       <div class="tab-track-wrapper">
-        <div ref="tabTrackRef" class="tab-track" :class="{ 'tab-track--variable': variableWidth }">
+        <div
+          ref="tabTrackRef"
+          class="tab-track"
+          :class="{ 'tab-track--variable': variableWidth, 'tab-track--dragging': isDragging }"
+          @pointerdown="onTrackPointerDown"
+          @pointermove="onTrackPointerMove"
+          @pointerup="onTrackPointerUp"
+          @pointercancel="onTrackPointerUp"
+        >
           <button
             v-for="tab in tabs"
             :key="tab.id"
@@ -137,7 +218,7 @@ function goNext() {
             :class="{ active: activeTab === tab.id, 'tab-bar-item--variable': variableWidth }"
             :data-testid="testidPrefix ? `${testidPrefix}-${tab.id}` : undefined"
             :title="variableWidth ? tab.label : undefined"
-            @click="selectTab(tab.id)"
+            @click="onTabClick(tab.id)"
           >
             {{ tab.label }}
           </button>
@@ -189,10 +270,18 @@ function goNext() {
   overflow: hidden;
 }
 
-/* Inner scrollable row — overflow hidden, scrolled via JS */
+/* Inner scrollable row — overflow hidden, scrolled via JS (click nav or
+   mouse-drag swipe) */
 .tab-track {
   display: flex;
   overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.tab-track--dragging {
+  cursor: grabbing;
 }
 
 .tab-bar-item {
