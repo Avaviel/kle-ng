@@ -103,12 +103,25 @@
         </ul>
       </div>
     </div>
+
+    <template #footer>
+      <a
+        href="https://editor.keyboard-tools.xyz/docs/via-and-metadata"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="btn btn-outline-secondary me-auto d-inline-flex align-items-center gap-1 docs-link"
+      >
+        Documentation <BiBoxArrowUpRight />
+      </a>
+      <button type="button" class="btn btn-primary" @click="close">Got it!</button>
+    </template>
   </BaseHelpModal>
 </template>
 
 <script setup lang="ts">
 import BaseHelpModal from './BaseHelpModal.vue'
 import BiExclamationTriangleFill from 'bootstrap-icons/icons/exclamation-triangle-fill.svg'
+import BiBoxArrowUpRight from 'bootstrap-icons/icons/box-arrow-up-right.svg'
 
 interface Props {
   isVisible: boolean
@@ -127,6 +140,11 @@ const close = () => {
 </script>
 
 <style scoped>
+.docs-link svg {
+  width: 0.75em;
+  height: 0.75em;
+}
+
 .warning-box {
   background: var(--bs-tertiary-bg);
   padding: 12px;
