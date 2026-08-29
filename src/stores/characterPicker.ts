@@ -13,8 +13,14 @@ export const useCharacterPickerStore = defineStore('characterPicker', () => {
   const activeLabelIndex = ref(0)
   const activeCursorPos = ref<number | null>(null)
 
-  function open() {
+  // Anchor point (e.g. a triggering button's position) for the panel to open
+  // near. Left null to fall back to the default top-right placement, as used
+  // by the "Extra tools" menu entry.
+  const anchorPosition = ref<{ x: number; y: number } | null>(null)
+
+  function open(anchor?: { x: number; y: number }) {
     isVisible.value = true
+    anchorPosition.value = anchor ?? null
   }
 
   function close() {
@@ -49,6 +55,7 @@ export const useCharacterPickerStore = defineStore('characterPicker', () => {
     isVisible,
     activeLabelIndex,
     activeCursorPos,
+    anchorPosition,
     open,
     close,
     setActiveLabel,

@@ -221,9 +221,14 @@ watch(
   () => props.visible,
   async (isVisible) => {
     if (isVisible) {
-      const panelWidth = 360
-      const margin = 20
-      initializePosition({ x: window.innerWidth - panelWidth - margin, y: 100 })
+      const anchor = characterPickerStore.anchorPosition
+      if (anchor) {
+        initializePosition(anchor)
+      } else {
+        const panelWidth = 360
+        const margin = 20
+        initializePosition({ x: window.innerWidth - panelWidth - margin, y: 100 })
+      }
       recentlyUsedChars.value = recentlyUsedCharactersManager.getRecentlyUsedCharacters()
 
       await nextTick()

@@ -616,6 +616,17 @@
                     />
                   </div>
                 </div>
+                <div class="character-picker-btn-row">
+                  <button
+                    @click="openCharacterPicker"
+                    class="btn btn-outline-secondary character-picker-btn"
+                    :disabled="isDisabled"
+                    title="Open the Character Picker to insert a symbol into a label"
+                  >
+                    <BiFonts class="me-1" />
+                    Character Picker
+                  </button>
+                </div>
               </div>
 
               <!-- Key and Text Colors -->
@@ -988,6 +999,7 @@ import { normalizeAngleDegrees } from '@/utils/angle-utils'
 import { isNonRectangular as isNonRectangularUtil } from '@/utils/key-utils'
 import ManufacturingHelpModal from './ManufacturingHelpModal.vue'
 import BiQuestionCircle from 'bootstrap-icons/icons/question-circle.svg'
+import BiFonts from 'bootstrap-icons/icons/fonts.svg'
 
 const keyboardStore = useKeyboardStore()
 const characterPickerStore = useCharacterPickerStore()
@@ -1313,6 +1325,19 @@ const updateLabel = (index: number) => {
 const handleLabelActivity = (index: number, event: Event) => {
   const target = event.target as HTMLInputElement
   characterPickerStore.setActiveLabel(index, target.selectionStart)
+}
+
+// Opens the Character Picker anchored near the triggering button, instead of
+// its default top-right position (used when opened from "Extra tools").
+const openCharacterPicker = (event: MouseEvent) => {
+  const button = event.currentTarget as HTMLElement
+  const rect = button.getBoundingClientRect()
+  const panelWidth = 360
+  const margin = 12
+  characterPickerStore.open({
+    x: Math.min(rect.left, window.innerWidth - panelWidth - margin),
+    y: rect.bottom + margin,
+  })
 }
 
 // Live preview text color update (no state save) — fires on every keystroke
@@ -2021,6 +2046,26 @@ const updateDefaultTextSizeValue = (value: number | undefined) => {
   padding: 2px 8px;
   line-height: 1.2;
   height: 20px;
+}
+
+.character-picker-btn-row {
+  display: flex;
+  margin-top: 4px;
+}
+
+.character-picker-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  padding: 2px 8px;
+  line-height: 1.2;
+  height: 20px;
+}
+
+.character-picker-btn svg {
+  width: 12px;
+  height: 12px;
 }
 
 /* Help button styling */
