@@ -6,6 +6,7 @@ import { whitespaceLabelRule } from './rules/whitespace-label.rule'
 import { blankLabelTextSizeRule } from './rules/blank-label-text-size.rule'
 import { blankLabelTextColorRule } from './rules/blank-label-text-color.rule'
 import { staleRotationOriginRule } from './rules/stale-rotation-origin.rule'
+import { staleStabilizerRotationRule } from './rules/stale-stabilizer-rotation.rule'
 
 export type { SanitizeRule, SanitizeRuleKind, SanitizeScanResult } from './types'
 export { isLabelBlank } from './label-utils'
@@ -31,6 +32,7 @@ export const SANITIZE_RULES: SanitizeRule[] = [
   blankLabelTextSizeRule,
   blankLabelTextColorRule,
   staleRotationOriginRule,
+  staleStabilizerRotationRule,
 ]
 
 export interface SanitizeCategorySummary extends SanitizeScanResult {

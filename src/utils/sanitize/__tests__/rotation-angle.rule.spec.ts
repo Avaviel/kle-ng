@@ -18,6 +18,16 @@ describe('rotationAngleRule', () => {
     expect(rotationAngleRule.scan(keys).count).toBe(2)
   })
 
+  it('counts keys carrying an out-of-range manufacturing rotation', () => {
+    const keys = [
+      makeKey({ switchRotation: -90 }),
+      makeKey({ stabRotation: 450 }),
+      makeKey({ switchRotation: 90, stabRotation: 180 }),
+    ]
+
+    expect(rotationAngleRule.scan(keys).count).toBe(2)
+  })
+
   it('wraps angles onto the -180..180 range', () => {
     const keys = [
       makeKey({ rotation_angle: 3600 }),
@@ -30,6 +40,15 @@ describe('rotationAngleRule', () => {
     expect(keys[0]!.rotation_angle).toBe(0)
     expect(keys[1]!.rotation_angle).toBe(-15)
     expect(keys[2]!.rotation_angle).toBe(170)
+  })
+
+  it('wraps manufacturing rotations onto the 0..360 range', () => {
+    const keys = [makeKey({ switchRotation: -90, stabRotation: 450 })]
+
+    rotationAngleRule.fix(keys)
+
+    expect(keys[0]!.switchRotation).toBe(270)
+    expect(keys[0]!.stabRotation).toBe(90)
   })
 
   it('leaves the rotation origin alone', () => {

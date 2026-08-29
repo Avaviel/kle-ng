@@ -30,3 +30,22 @@ export function normalizeAngleDegrees(angle: number): number {
   // `+ 0` collapses -0 (which mod produces for negative multiples of 360) to 0.
   return D.format(wrapped, 6) + 0
 }
+
+/**
+ * Wraps a rotation angle in degrees onto the canonical [0, 360) range.
+ *
+ * Used for the manufacturing rotations (`switchRotation`, `stabRotation`),
+ * which are stored unsigned — unlike `rotation_angle`, which is signed and
+ * wraps via `normalizeAngleDegrees` above instead.
+ */
+export function normalizeAngleDegrees360(angle: number): number {
+  if (!Number.isFinite(angle)) return 0
+
+  // D.mod keeps the sign of the dividend, so this lands in (-360, 360).
+  let wrapped = D.mod(angle, 360)
+  if (wrapped < 0) {
+    wrapped = D.add(wrapped, 360)
+  }
+
+  return D.format(wrapped, 6) + 0
+}

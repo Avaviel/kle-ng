@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { normalizeAngleDegrees } from '../angle-utils'
+import { normalizeAngleDegrees, normalizeAngleDegrees360 } from '../angle-utils'
 
 describe('normalizeAngleDegrees', () => {
   it('leaves an in-range angle alone', () => {
@@ -56,5 +56,52 @@ describe('normalizeAngleDegrees', () => {
   it('falls back to zero for a non-finite angle', () => {
     expect(normalizeAngleDegrees(NaN)).toBe(0)
     expect(normalizeAngleDegrees(Infinity)).toBe(0)
+  })
+})
+
+describe('normalizeAngleDegrees360', () => {
+  it('leaves an in-range angle alone', () => {
+    expect(normalizeAngleDegrees360(0)).toBe(0)
+    expect(normalizeAngleDegrees360(15)).toBe(15)
+    expect(normalizeAngleDegrees360(270)).toBe(270)
+    expect(normalizeAngleDegrees360(359.5)).toBe(359.5)
+  })
+
+  it('wraps a negative angle into the top of the range', () => {
+    expect(normalizeAngleDegrees360(-90)).toBe(270)
+    expect(normalizeAngleDegrees360(-0.5)).toBe(359.5)
+  })
+
+  it('collapses whole turns to zero', () => {
+    expect(normalizeAngleDegrees360(360)).toBe(0)
+    expect(normalizeAngleDegrees360(3600)).toBe(0)
+    expect(normalizeAngleDegrees360(-360)).toBe(0)
+    expect(Object.is(normalizeAngleDegrees360(-360), 0)).toBe(true)
+  })
+
+  it('keeps the fractional part of a wrapped angle', () => {
+    expect(normalizeAngleDegrees360(3615.5)).toBe(15.5)
+    expect(normalizeAngleDegrees360(-0.1)).toBeCloseTo(359.9, 6)
+  })
+
+  it('is idempotent', () => {
+    for (const angle of [0, 90, 270, -90, 450, 3600, -3615.5, 1e20]) {
+      const once = normalizeAngleDegrees360(angle)
+      expect(normalizeAngleDegrees360(once), `angle ${angle}`).toBe(once)
+    }
+  })
+
+  it('handles an enormous value without iterating per turn', () => {
+    const start = Date.now()
+    const result = normalizeAngleDegrees360(1e20)
+
+    expect(result).toBeGreaterThanOrEqual(0)
+    expect(result).toBeLessThan(360)
+    expect(Date.now() - start).toBeLessThan(1000)
+  })
+
+  it('falls back to zero for a non-finite angle', () => {
+    expect(normalizeAngleDegrees360(NaN)).toBe(0)
+    expect(normalizeAngleDegrees360(Infinity)).toBe(0)
   })
 })
