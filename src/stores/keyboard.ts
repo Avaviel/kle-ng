@@ -767,32 +767,14 @@ export const useKeyboardStore = defineStore('keyboard', () => {
       return
     }
 
-    const sampleLayout = [
-      [
-        'Num Lock',
-        '/',
-        '*',
-        '-',
-        { x: 0.25, f: 5, w: 12.5, h: 5, d: true },
-        'Getting Started with Keyboard Layout Editor NG<br><br>Start by exploring the presets from the menu-bar to give you an idea of the possibilities.<br>Once you are ready to start designing your own keyboard, just load one of the presets and start customizing it!<br><br><ul><li>Use left-side toolbar to add and edit keys</li><li>The selected keys can be modified on the <i>Key Properties</i> tab. Use mouse left click to select one or multiple keys</li><li>Move selection with arrows or with mouse middle-click drag</li><li>To learn more see <a href="https://editor.keyboard-tools.xyz/docs">documentation</a></li></ul><br>When you\'re ready to save your layout, simply use <i>Export</i> from the menu-bar. Have fun!',
-      ],
-      [{ f: 3 }, '7\nHome', '8\n↑', '9\nPgUp', { h: 2 }, '+'],
-      ['4\n←', '5', '6\n→'],
-      ['1\nEnd', '2\n↓', '3\nPgDn', { h: 2 }, 'Enter'],
-      [{ w: 2 }, '0\nIns', '.\nDel'],
-    ]
-
     try {
-      const keyboard = Serial.deserialize(sampleLayout)
-      keys.value = keyboard.keys
-      metadata.value = keyboard.meta
-      selectedKeys.value = []
-      history.value = []
-      historyIndex.value = -1
-      saveState()
-      updateBaseline()
-      resetViewTrigger.value++
-      layoutGeneration.value++
+      const url = `${import.meta.env.BASE_URL}data/cad-desk.json`
+      const response = await fetch(url)
+      if (!response.ok) {
+        throw new Error(`Failed to load default layout: ${response.status}`)
+      }
+      const sampleLayout = await response.json()
+      loadKLELayout(sampleLayout)
     } catch (error) {
       console.error('Error loading sample layout:', error)
       saveState()

@@ -7,6 +7,8 @@ import svgLoader from 'vite-svg-loader'
 
 // https://vite.dev/config/
 export default defineConfig({
+  // Project Pages: https://avaviel.github.io/kle-ng/
+  base: process.env.GITHUB_PAGES === 'true' ? '/kle-ng/' : '/',
   worker: {
     format: 'es',
   },
