@@ -20,6 +20,14 @@
           @delete-keys="deleteKeys"
         />
 
+        <ToolbarCornersSection
+          :zone-choices="keyboardStore.cornerZoneChoices"
+          :next-new-zone="keyboardStore.nextCornerZone"
+          :show-markers="layoutEditorSettingsStore.showCornerMarkers"
+          @add-corner="addCorner"
+          @toggle-markers="layoutEditorSettingsStore.toggleCornerMarkers"
+        />
+
         <!-- History Operations (in column 1 with Edit) -->
         <div style="padding-top: 5px">
           <ToolbarHistorySection
@@ -56,10 +64,20 @@
         @delete-keys="deleteKeys"
       />
 
+      <ToolbarCornersSection
+        v-if="toolbarColumns === 1"
+        :style="getSectionStyle(2)"
+        :zone-choices="keyboardStore.cornerZoneChoices"
+        :next-new-zone="keyboardStore.nextCornerZone"
+        :show-markers="layoutEditorSettingsStore.showCornerMarkers"
+        @add-corner="addCorner"
+        @toggle-markers="layoutEditorSettingsStore.toggleCornerMarkers"
+      />
+
       <!-- Tools (single column mode) -->
       <ToolbarToolsSection
         v-if="toolbarColumns === 1"
-        :style="getSectionStyle(2)"
+        :style="getSectionStyle(3)"
         :canvas-mode="canvasMode"
         :can-use-move-exactly-tool="canUseMoveExactlyTool"
         :can-use-rotate-tool="canUseRotateTool"
@@ -73,7 +91,7 @@
       <!-- History Operations (single column mode) -->
       <ToolbarHistorySection
         v-if="toolbarColumns === 1"
-        :style="getSectionStyle(3)"
+        :style="getSectionStyle(4)"
         :can-undo="canUndo"
         :can-redo="canRedo"
         @undo="undo"
@@ -128,6 +146,7 @@ import MatrixCoordinatesModal from './MatrixCoordinatesModal.vue'
 import SanitizeToolPanel from './SanitizeToolPanel.vue'
 import CharacterPickerModal from './CharacterPickerModal.vue'
 import ToolbarEditSection from './ToolbarEditSection.vue'
+import ToolbarCornersSection from './ToolbarCornersSection.vue'
 import ToolbarToolsSection from './ToolbarToolsSection.vue'
 import ToolbarHistorySection from './ToolbarHistorySection.vue'
 
@@ -272,6 +291,12 @@ const addSpecialKey = (specialKey: SpecialKeyTemplate) => {
   requestCanvasFocus()
 }
 
+const addCorner = (zone?: number) => {
+  if (keyboardStore.isLayoutPreviewMode) return
+  keyboardStore.addCorner(zone)
+  requestCanvasFocus()
+}
+
 const selectMirrorMode = (mode: 'mirror-v' | 'mirror-h') => {
   setMode(mode)
   requestCanvasFocus()
@@ -315,7 +340,7 @@ onMounted(() => {
       const entry = entries[0]
       if (!entry) return
       const availableHeight = entry.contentRect.height
-      if (availableHeight < 530) {
+      if (availableHeight < 620) {
         toolbarColumns.value = 2
       } else {
         toolbarColumns.value = 1

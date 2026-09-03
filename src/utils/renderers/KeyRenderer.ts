@@ -4,6 +4,7 @@ import type { MultiPolygon } from 'polygon-clipping'
 import type { KeyRenderParams } from '../canvas-renderer'
 import { isNonRectangular } from '../key-utils'
 import { lightenColor as computeLightenColor } from '../color-utils'
+import { isCorner } from '../cad-corners'
 
 /**
  * Options for rendering a key
@@ -706,6 +707,28 @@ export class KeyRenderer {
     // Check if this is a rotary encoder key
     // (check if 'switch mount' property equal 'rot_ec11')
     const isRotaryEncoder = key.sm === 'rot_ec11'
+
+    // Outline corners are 0.5U decals, but they must render as solid squares
+    // sitting on keycaps — not as invisible KLE decals.
+    if (isCorner(key)) {
+      const selectionColor = options.selectionColor ?? KeyRenderer.SELECTION_COLOR
+      const borderColor = options.isHovered || options.isSelected ? selectionColor : '#000000'
+      const strokeWidth =
+        options.isHovered || options.isSelected ? 2 : sizes.strokeWidth
+      this.drawRoundedRect(
+        ctx,
+        params.outercapx,
+        params.outercapy,
+        params.outercapwidth,
+        params.outercapheight,
+        2,
+        key.color || '#cccccc',
+        borderColor,
+        strokeWidth,
+      )
+      ctx.restore()
+      return
+    }
 
     // Render using unified vector union approach for all keys
     if (!key.decal) {

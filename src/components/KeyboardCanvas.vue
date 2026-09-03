@@ -187,6 +187,7 @@ import { hexToRgb } from '@/utils/color-utils'
 import { parseBorderRadius, createRoundedRectanglePath } from '@/utils/border-radius'
 import { extractKleLayoutWithFallback } from '@/utils/pixel-metadata'
 import { parseJsonString } from '@/utils/serialization'
+import { isCorner } from '@/utils/cad-corners'
 import { toast } from '@/composables/useToast'
 import RotationControlModal from '@/components/RotationControlModal.vue'
 import MoveExactlyModal from '@/components/MoveExactlyModal.vue'
@@ -363,6 +364,11 @@ const keysForRender = computed(() => {
   return keyboardStore.keys
 })
 
+const keysForHit = computed(() => {
+  if (layoutEditorSettingsStore.showCornerMarkers) return keysForRender.value
+  return keysForRender.value.filter((key) => !isCorner(key))
+})
+
 const rectSelectionOccurred = ref(false)
 const keyDragOccurred = ref(false)
 const mouseDownOnKey = ref<{ key: Key; pos: { x: number; y: number } } | null>(null)
@@ -436,6 +442,7 @@ const renderOptions = computed<RenderOptions>(() => ({
   gridStep: keyboardStore.moveStep,
   highlightColor: layoutEditorSettingsStore.highlightColor,
   allowLabelOverflow: layoutEditorSettingsStore.allowLabelOverflow,
+  showCornerMarkers: layoutEditorSettingsStore.showCornerMarkers,
 }))
 
 // Watch for layout changes and clear matrix overlay
@@ -690,6 +697,7 @@ watch(
     layoutEditorSettingsStore.showGrid,
     layoutEditorSettingsStore.highlightColor,
     layoutEditorSettingsStore.allowLabelOverflow,
+    layoutEditorSettingsStore.showCornerMarkers,
     keyboardStore.moveStep,
   ],
   () => {
@@ -1242,7 +1250,7 @@ const handleCanvasClick = (event: MouseEvent) => {
   }
 
   // Get all keys at click position (for overlapping key detection)
-  const keysAtPosition = renderer.value.getAllKeysAtPosition(pos.x, pos.y, keyboardStore.keys)
+  const keysAtPosition = renderer.value.getAllKeysAtPosition(pos.x, pos.y, keysForHit.value)
 
   if (keysAtPosition.length === 0) {
     // Clicked on empty space - clear selection unless Ctrl/Cmd is held
@@ -1322,7 +1330,7 @@ const handleMouseDown = (event: MouseEvent) => {
     }
 
     // Get all keys at position for overlapping key detection
-    const keysAtPosition = renderer.value.getAllKeysAtPosition(pos.x, pos.y, keyboardStore.keys)
+    const keysAtPosition = renderer.value.getAllKeysAtPosition(pos.x, pos.y, keysForHit.value)
 
     if (keysAtPosition.length === 0) {
       // No key clicked, do nothing
@@ -2137,7 +2145,7 @@ const calculateSelectedKeys = (endPos: { x: number; y: number }): Key[] => {
 
   const unit = renderer.value.getOptions().unit
 
-  return keyboardStore.keys.filter((key) => {
+  return keysForHit.value.filter((key) => {
     return keyIntersectsSelection(key, keyboardStore.rectSelectStart!, endPos, unit)
   })
 }

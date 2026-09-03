@@ -7,6 +7,7 @@ interface PersistedSettings {
   showGrid?: boolean
   highlightColor?: string
   allowLabelOverflow?: boolean
+  showCornerMarkers?: boolean
 }
 
 export const DEFAULT_HIGHLIGHT_COLOR = '#dc3545'
@@ -27,6 +28,7 @@ export const useLayoutEditorSettingsStore = defineStore('layoutEditorSettings', 
   const showGrid = ref<boolean>(saved.showGrid ?? false)
   const highlightColor = ref<string>(saved.highlightColor ?? DEFAULT_HIGHLIGHT_COLOR)
   const allowLabelOverflow = ref<boolean>(saved.allowLabelOverflow ?? false)
+  const showCornerMarkers = ref<boolean>(saved.showCornerMarkers ?? true)
 
   // Not persisted — just a shared toggle so panels/modals outside CanvasToolbar
   // (e.g. ShortLinkConfirmModal's sanitize-before-sharing nudge) can open the
@@ -48,5 +50,21 @@ export const useLayoutEditorSettingsStore = defineStore('layoutEditorSettings', 
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...current, allowLabelOverflow: val }))
   })
 
-  return { showGrid, highlightColor, allowLabelOverflow, showSanitizeToolPanel }
+  watch(showCornerMarkers, (val) => {
+    const current = loadFromStorage()
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...current, showCornerMarkers: val }))
+  })
+
+  const toggleCornerMarkers = () => {
+    showCornerMarkers.value = !showCornerMarkers.value
+  }
+
+  return {
+    showGrid,
+    highlightColor,
+    allowLabelOverflow,
+    showCornerMarkers,
+    toggleCornerMarkers,
+    showSanitizeToolPanel,
+  }
 })

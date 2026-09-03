@@ -30,6 +30,18 @@ import {
 } from '../utils/array-helpers'
 import { getSerializedData as getSerializedDataUtil } from '../utils/serialization'
 import {
+  cornerLabelsFor,
+  CORNER_ZONE_CHOICES,
+  ensureZoneMeta,
+  getCornerZone,
+  hydrateCorners,
+  isCorner,
+  nextCornerIndex,
+  nextNewZone,
+  usedZones,
+  zoneColor,
+} from '../utils/cad-corners'
+import {
   transformRotationOrigin as transformRotationOriginUtil,
   moveRotationOriginsToPosition as moveRotationOriginsToPositionUtil,
   mirrorKeys as mirrorKeysUtil,
@@ -260,7 +272,7 @@ export const useKeyboardStore = defineStore('keyboard', () => {
    * Automatically selects the newly added key and saves state to history.
    * @param keyData - Optional partial key data to override defaults
    */
-  const addKey = (keyData?: Partial<Key>) => {
+  const addKey = (keyData?: Partial<Key> & { _z?: number; _zi?: number }) => {
     const newKey = { ...createKey(), ...keyData }
 
     // Position new key next to selected key if one is selected
@@ -305,6 +317,43 @@ export const useKeyboardStore = defineStore('keyboard', () => {
     for (let i = 0; i < count; i++) {
       addKey()
     }
+  }
+
+  const lastCornerZone = ref(1)
+
+  const cornerZoneChoices = computed(() => {
+    const extra = usedZones(keys.value).filter((z) => z > 8)
+    return [...CORNER_ZONE_CHOICES, ...extra]
+  })
+
+  const nextCornerZone = computed(() => nextNewZone(keys.value))
+
+  const addCorner = (zone?: number) => {
+    let z = zone != null ? Math.round(Number(zone)) : 0
+    if (!z) {
+      const selected = selectedKeys.value[selectedKeys.value.length - 1]
+      if (selected && isCorner(selected)) {
+        z = getCornerZone(selected)
+      } else {
+        z = lastCornerZone.value || 1
+      }
+    }
+    if (z < 1) z = 1
+    lastCornerZone.value = z
+    const index = nextCornerIndex(keys.value, z)
+    ensureZoneMeta(metadata.value, z)
+    addKey({
+      width: 0.5,
+      height: 0.5,
+      width2: 0.5,
+      height2: 0.5,
+      decal: true,
+      color: zoneColor(z),
+      default: { textColor: '#000000', textSize: 2 },
+      labels: cornerLabelsFor(z, index),
+      _z: z,
+      _zi: index,
+    })
   }
 
   const deleteKeys = () => {
@@ -603,6 +652,7 @@ export const useKeyboardStore = defineStore('keyboard', () => {
     }
     try {
       keys.value = JSON.parse(JSON.stringify(keyboard.keys))
+      hydrateCorners(keys.value)
       // Merge with defaults to ensure all standard properties exist
       const defaults = new KeyboardMetadata()
       metadata.value = { ...defaults, ...JSON.parse(JSON.stringify(keyboard.meta)) }
@@ -706,6 +756,7 @@ export const useKeyboardStore = defineStore('keyboard', () => {
       selectedKeys.value = []
 
       keys.value = keyboard.keys
+      hydrateCorners(keys.value)
       metadata.value = keyboard.meta
 
       // Apply font settings from CSS metadata if present
@@ -1713,6 +1764,9 @@ export const useKeyboardStore = defineStore('keyboard', () => {
 
     addKey,
     addKeys,
+    addCorner,
+    cornerZoneChoices,
+    nextCornerZone,
     deleteKeys,
     selectKey,
     selectAll,

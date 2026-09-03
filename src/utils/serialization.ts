@@ -2,6 +2,8 @@ import JSON5 from 'json5'
 import { Key, Keyboard, Serial } from '@adamws/kle-serial'
 import { D } from './decimal-math'
 import { shrinkArray } from './array-helpers'
+import { injectCadCornerProps } from './cad-corners'
+import type { CadKey } from './cad-corners'
 
 /**
  * Sort keys for optimal serialization (matches keyboard-layout-editor approach).
@@ -170,34 +172,38 @@ export function getKleInternalFormatForExport(keyboard: Keyboard) {
   // Create plain objects with shrunk arrays
   return {
     meta: roundedKeyboard.meta,
-    keys: roundedKeyboard.keys.map((key) => ({
-      color: key.color,
-      labels: shrinkArray(key.labels),
-      textColor: shrinkArray(key.textColor),
-      textSize: shrinkArray(key.textSize),
-      default: key.default,
-      x: key.x,
-      y: key.y,
-      width: key.width,
-      height: key.height,
-      x2: key.x2,
-      y2: key.y2,
-      width2: key.width2,
-      height2: key.height2,
-      rotation_x: key.rotation_x,
-      rotation_y: key.rotation_y,
-      rotation_angle: key.rotation_angle,
-      decal: key.decal,
-      ghost: key.ghost,
-      stepped: key.stepped,
-      nub: key.nub,
-      profile: key.profile,
-      sm: key.sm,
-      sb: key.sb,
-      st: key.st,
-      switchRotation: key.switchRotation,
-      stabRotation: key.stabRotation,
-    })),
+    keys: roundedKeyboard.keys.map((key) => {
+      const cad = key as CadKey
+      return {
+        color: key.color,
+        labels: shrinkArray(key.labels),
+        textColor: shrinkArray(key.textColor),
+        textSize: shrinkArray(key.textSize),
+        default: key.default,
+        x: key.x,
+        y: key.y,
+        width: key.width,
+        height: key.height,
+        x2: key.x2,
+        y2: key.y2,
+        width2: key.width2,
+        height2: key.height2,
+        rotation_x: key.rotation_x,
+        rotation_y: key.rotation_y,
+        rotation_angle: key.rotation_angle,
+        decal: key.decal,
+        ghost: key.ghost,
+        stepped: key.stepped,
+        nub: key.nub,
+        profile: key.profile,
+        sm: key.sm,
+        sb: key.sb,
+        st: key.st,
+        switchRotation: key.switchRotation,
+        stabRotation: key.stabRotation,
+        ...(cad._z ? { _z: cad._z, _zi: cad._zi || 0 } : {}),
+      }
+    }),
   }
 }
 
@@ -227,7 +233,7 @@ export function getSerializedData(
   if (format === 'kle') {
     // Apply rounding to 6 decimal places for consistent JSON export
     const roundedKeyboard = getRoundedKeyboard(clonedKeyboard)
-    return Serial.serialize(roundedKeyboard)
+    return injectCadCornerProps(Serial.serialize(roundedKeyboard)) as unknown[]
   }
 
   if (format === 'kle-internal') {

@@ -41,19 +41,28 @@ describe('CAD desk extras vs kle-serial2', () => {
     expect(Object.keys(zones || {})).toEqual(['1', '2', '3', '4', '5', '6'])
   })
 
-  it('drops per-key _z/_zi (kle-serial2 has no those fields yet)', () => {
+  it('kle-serial2 deserialize drops per-key _z/_zi', () => {
     const raw = JSON.stringify(loadCadDesk())
     expect(raw).toContain('"_z"')
     expect(raw).toContain('"_zi"')
 
+    const keyboard = Serial.deserialize(loadCadDesk())
+    const extrasOnKeys = keyboard.keys.filter((key) => {
+      const rec = key as unknown as Record<string, unknown>
+      return rec._z != null || rec._zi != null
+    })
+    expect(extrasOnKeys).toHaveLength(0)
+  })
+
+  it('store hydrates _z/_zi from Z#.# legends after load', () => {
     const store = useKeyboardStore()
     store.loadKLELayout(loadCadDesk())
 
     const extrasOnKeys = store.keys.filter((key) => {
       const rec = key as unknown as Record<string, unknown>
-      return rec._z != null || rec._zi != null
+      return rec._z != null
     })
-    expect(extrasOnKeys).toHaveLength(0)
+    expect(extrasOnKeys.length).toBeGreaterThan(0)
   })
 
   it('keeps corner decals and Z#.# legends so keys still render', () => {
@@ -69,12 +78,12 @@ describe('CAD desk extras vs kle-serial2', () => {
     expect(cornerLegends.length).toBeGreaterThan(0)
   })
 
-  it('compact re-serialize still omits _z/_zi (document the leak)', () => {
+  it('compact re-serialize injects _z/_zi next to Z#.# legends', () => {
     const store = useKeyboardStore()
     store.loadKLELayout(loadCadDesk())
     const compact = JSON.stringify(store.getSerializedData('kle'))
-    expect(compact).not.toContain('"_z"')
-    expect(compact).not.toContain('"_zi"')
+    expect(compact).toContain('"_z"')
+    expect(compact).toContain('"_zi"')
     expect(compact).toContain('_zones')
   })
 })

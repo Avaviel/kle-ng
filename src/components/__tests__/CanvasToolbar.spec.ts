@@ -64,6 +64,29 @@ describe('CanvasToolbar', () => {
       expect(newKey!.labels[4]).toBe('Enter')
     })
 
+    it('should add a CAD corner from the Corners section', async () => {
+      const wrapper = mount(CanvasToolbar, {
+        global: {
+          plugins: [createPinia()],
+        },
+      })
+
+      const store = useKeyboardStore()
+      const initialKeyCount = store.keys.length
+
+      await wrapper.find('[data-testid="toolbar-add-corner"]').trigger('click')
+      await wrapper.vm.$nextTick()
+
+      expect(store.keys.length).toBe(initialKeyCount + 1)
+      const created = store.keys[store.keys.length - 1]
+      expect(created).toBeDefined()
+      expect(created!.width).toBe(0.5)
+      expect(created!.height).toBe(0.5)
+      expect(created!.decal).toBe(true)
+      expect(created!.labels.some((label) => /^Z\d+\.\d+$/.test(label))).toBe(true)
+      expect((created as { _z?: number })._z).toBe(1)
+    })
+
     it('should add standard key with regular add button', async () => {
       const wrapper = mount(CanvasToolbar, {
         global: {
@@ -101,14 +124,13 @@ describe('CanvasToolbar', () => {
       })
 
       const sections = wrapper.findAll('.toolbar-section')
-      // We now have 3 sections: Tools, Edit, History
-      // Debug tools are now part of Tools as "Extra tools" dropdown
-      // Clipboard operations removed (users use keyboard shortcuts)
-      expect(sections.length).toBe(3)
+      // Edit, Corners, Tools, History. Extra tools stay in the Tools dropdown.
+      expect(sections.length).toBe(4)
 
       const labels = sections.map((section) => section.find('.section-label').text())
       expect(labels).toContain('Tools')
       expect(labels).toContain('Edit')
+      expect(labels).toContain('Corners')
       expect(labels).toContain('History')
     })
 

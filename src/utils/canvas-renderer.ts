@@ -12,6 +12,12 @@ import { LinkTracker, linkTracker } from './renderers/LinkTracker'
 import { BoundsCalculator } from './utils/BoundsCalculator'
 import { HitTester } from './utils/HitTester'
 import type { LabelNode } from './parsers/LabelAST'
+import {
+  getCornerIndex,
+  getCornerZone,
+  isCorner,
+  zoneColor,
+} from './cad-corners'
 
 export interface RenderOptions {
   unit: number
@@ -22,6 +28,7 @@ export interface RenderOptions {
   scale?: number
   fontFamily?: string
   allowLabelOverflow?: boolean
+  showCornerMarkers?: boolean
 }
 
 export interface KeyRenderParams {
@@ -379,12 +386,19 @@ export class CanvasRenderer {
       this.drawGrid()
     }
 
+    const showCornerMarkers = this.options.showCornerMarkers !== false
+    const drawableKeys = showCornerMarkers ? keys : keys.filter((key) => !isCorner(key))
+    const drawableSelected = showCornerMarkers
+      ? selectedKeys
+      : selectedKeys.filter((key) => !isCorner(key))
+
     // Create sets for efficient lookup
-    const selectedKeySet = new Set(selectedKeys)
+    const selectedKeySet = new Set(drawableSelected)
     const searchMatchSet = new Set(searchMatchKeys)
 
-    // Separate keys into selected and non-selected
-    const nonSelectedKeys = keys.filter((key) => !selectedKeySet.has(key))
+    // Separate keys into selected and non-selected. Draw non-corners first so
+    // outline markers sit on top of keycaps.
+    const nonSelectedKeys = drawableKeys.filter((key) => !selectedKeySet.has(key))
 
     // Sort both groups by row/column for proper rendering order within each group
     const sortedNonSelectedKeys = [...nonSelectedKeys].sort((a, b) => {
@@ -409,21 +423,36 @@ export class CanvasRenderer {
 
     // Partition non-selected keys in a single pass to preserve layer order:
     // regular keys drawn first (bottom), then match keys on top so the amber
-    // border is never occluded by a neighbouring regular key.
+    // border is never occluded by a neighbouring regular key. Corners are
+    // painted after the dashed overlay so they sit on keycaps.
     const regularKeys: Key[] = []
     const matchKeys: Key[] = []
+    const cornerKeys: Key[] = []
     for (const key of sortedNonSelectedKeys) {
-      if (searchMatchSet.has(key)) matchKeys.push(key)
+      if (isCorner(key)) cornerKeys.push(key)
+      else if (searchMatchSet.has(key)) matchKeys.push(key)
       else regularKeys.push(key)
+    }
+    const selectedNonCorners: Key[] = []
+    const selectedCorners: Key[] = []
+    for (const key of sortedSelectedKeys) {
+      if (isCorner(key)) selectedCorners.push(key)
+      else selectedNonCorners.push(key)
     }
 
     regularKeys.forEach((key) => this.drawKey(key, false, false, hoveredLinkHref, false))
     matchKeys.forEach((key) => this.drawKey(key, false, false, hoveredLinkHref, true))
 
-    // Draw selected keys on top of non-selected keys (with red selection stroke)
-    sortedSelectedKeys.forEach((key) => {
+    selectedNonCorners.forEach((key) => {
       this.drawKey(key, true, false, hoveredLinkHref)
     })
+
+    this.drawZoneOverlay(keys)
+
+    if (showCornerMarkers) {
+      cornerKeys.forEach((key) => this.drawKey(key, false, false, hoveredLinkHref, false))
+      selectedCorners.forEach((key) => this.drawKey(key, true, false, hoveredLinkHref))
+    }
 
     // Draw popup-hovered key on top with blue highlight (for overlapping key disambiguation)
     if (popupHoveredKey) {
@@ -449,6 +478,52 @@ export class CanvasRenderer {
     }
 
     this.ctx.restore()
+  }
+
+  private keyCenter(key: Key): { x: number; y: number } {
+    const params = keyRenderer.getRenderParams(key, { unit: this.options.unit })
+    let x = params.capx + params.capwidth / 2
+    let y = params.capy + params.capheight / 2
+    if (key.rotation_angle) {
+      const rad = (key.rotation_angle * Math.PI) / 180
+      const ox = params.origin_x
+      const oy = params.origin_y
+      const dx = x - ox
+      const dy = y - oy
+      x = ox + dx * Math.cos(rad) - dy * Math.sin(rad)
+      y = oy + dx * Math.sin(rad) + dy * Math.cos(rad)
+    }
+    return { x, y }
+  }
+
+  private drawZoneOverlay(keys: Key[]): void {
+    const byZone = new Map<number, { index: number; x: number; y: number }[]>()
+    for (const key of keys) {
+      if (!isCorner(key)) continue
+      const zone = getCornerZone(key)
+      const center = this.keyCenter(key)
+      const list = byZone.get(zone) || []
+      list.push({ index: getCornerIndex(key), ...center })
+      byZone.set(zone, list)
+    }
+
+    const ctx = this.ctx
+    for (const [zone, pts] of byZone) {
+      pts.sort((a, b) => a.index - b.index)
+      if (pts.length < 2) continue
+      ctx.save()
+      ctx.setLineDash([6, 4])
+      ctx.strokeStyle = zoneColor(zone)
+      ctx.lineWidth = 2
+      ctx.beginPath()
+      ctx.moveTo(pts[0]!.x, pts[0]!.y)
+      for (let i = 1; i < pts.length; i++) {
+        ctx.lineTo(pts[i]!.x, pts[i]!.y)
+      }
+      ctx.closePath()
+      ctx.stroke()
+      ctx.restore()
+    }
   }
 
   private drawGrid(): void {
