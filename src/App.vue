@@ -13,7 +13,6 @@ import AppFooter from './components/AppFooter.vue'
 import CanvasToolbar from './components/CanvasToolbar.vue'
 import CanvasFooter from './components/CanvasFooter.vue'
 import CanvasHelpModal from './components/CanvasHelpModal.vue'
-import FundingModal from './components/FundingModal.vue'
 import PcbHelpModal from './components/PcbHelpModal.vue'
 import PlateHelpModal from './components/PlateHelpModal.vue'
 import PcbSettingsModal from './components/PcbSettingsModal.vue'
@@ -31,7 +30,6 @@ import { preloadErgogenModule } from '@/utils/ergogen-loader'
 
 import BiChevronDown from 'bootstrap-icons/icons/chevron-down.svg'
 import BiChevronUp from 'bootstrap-icons/icons/chevron-up.svg'
-import BiCoin from 'bootstrap-icons/icons/coin.svg'
 import BiGear from 'bootstrap-icons/icons/gear.svg'
 import BiGripVertical from 'bootstrap-icons/icons/grip-vertical.svg'
 import BiQuestionCircle from 'bootstrap-icons/icons/question-circle.svg'
@@ -298,17 +296,6 @@ const closeHelp = () => {
   isHelpVisible.value = false
 }
 
-// Funding modal state
-const isFundingVisible = ref(false)
-
-const showFunding = () => {
-  isFundingVisible.value = true
-}
-
-const closeFunding = () => {
-  isFundingVisible.value = false
-}
-
 // PCB Help modal state
 const isPcbHelpVisible = ref(false)
 
@@ -421,7 +408,7 @@ const isLayoutEditorSettingsOpen = ref(false)
     <div v-if="isPreviewDeployment" class="preview-banner border-bottom px-3 py-2 text-center">
       This is a <strong>preview</strong> build from an unreleased commit &mdash; features may be
       incomplete or broken. For the stable editor go to
-      <a :href="PRODUCTION_URL">editor.keyboard-tools.xyz</a>.
+      <a :href="PRODUCTION_URL">avaviel.github.io/kle-ng</a>.
     </div>
 
     <!-- Touch/mobile visitors: many editing gestures are mouse/keyboard-only -->
@@ -490,15 +477,6 @@ const isLayoutEditorSettingsOpen = ref(false)
                 title="Help"
               >
                 <BiQuestionCircle />
-              </button>
-              <!-- Funding button only for Layout Editor section -->
-              <button
-                v-if="section.id === 'canvas'"
-                @click.stop="showFunding"
-                class="btn btn-outline-secondary help-btn"
-                title="Funding"
-              >
-                <BiCoin />
               </button>
               <!-- Help button for PCB Generator section -->
               <button
@@ -627,9 +605,6 @@ const isLayoutEditorSettingsOpen = ref(false)
 
     <!-- Canvas Help Modal -->
     <CanvasHelpModal :is-visible="isHelpVisible" @close="closeHelp" />
-
-    <!-- Funding Modal -->
-    <FundingModal :is-visible="isFundingVisible" @close="closeFunding" />
 
     <!-- PCB Help Modal -->
     <PcbHelpModal :is-visible="isPcbHelpVisible" @close="closePcbHelp" />

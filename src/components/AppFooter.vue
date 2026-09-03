@@ -22,24 +22,23 @@
             >Keyboard Layout Editor
           </a>
           <br />
-          <a href="https://keyboard-tools.xyz" target="_blank" class="text-decoration-none">
-            keyboard-tools.xyz</a
+          Based on
+          <a href="https://github.com/adamws/kle-ng" target="_blank" class="text-decoration-none">
+            kle-ng</a
           >
+          (MIT)
         </div>
         <div class="col-md-6 text-end">
           <div class="footer-links">
-            <a href="https://github.com/adamws/kle-ng" target="_blank" class="text-decoration-none">
+            <a href="https://github.com/Avaviel/kle-ng" target="_blank" class="text-decoration-none">
               Project GitHub</a
             ><br />
             <a
-              href="https://github.com/adamws/kle-ng/issues"
+              href="https://github.com/Avaviel/kle-ng/issues"
               target="_blank"
               class="text-decoration-none"
             >
               Report Issues</a
-            ><br />
-            <a href="https://ko-fi.com/adamws" target="_blank" class="text-decoration-none">
-              Support</a
             ><br />
           </div>
         </div>

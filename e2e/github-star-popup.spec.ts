@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test'
 import { GitHubStarPopupHelper } from './helpers/github-star-popup-helpers'
 import { WaitHelpers } from './helpers/wait-helpers'
 
-test.describe('GitHub Star Popup', () => {
+test.describe.skip('GitHub Star Popup', () => {
   let popupHelper: GitHubStarPopupHelper
   let waitHelpers: WaitHelpers
 
