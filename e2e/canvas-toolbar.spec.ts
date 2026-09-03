@@ -29,6 +29,8 @@ test.describe('Canvas Toolbar', () => {
       // Check key tool buttons are present (drag & drop tool no longer exists)
       await expect(toolbarHelper.getSelectionButton()).toBeVisible()
       await expect(page.getByTestId('toolbar-add-key')).toBeVisible()
+      await expect(page.getByTestId('toolbar-add-corner')).toBeVisible()
+      await expect(page.getByTestId('toolbar-corner-markers')).toBeVisible()
       await expect(toolbarHelper.getMirrorButton()).toBeVisible()
       await expect(toolbarHelper.getMirrorDropdownButton()).toBeVisible()
     })

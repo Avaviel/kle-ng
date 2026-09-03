@@ -340,7 +340,10 @@ onMounted(() => {
       const entry = entries[0]
       if (!entry) return
       const availableHeight = entry.contentRect.height
-      if (availableHeight < 620) {
+      // 530 matches the default layout-editor height. Going higher (e.g. 620
+      // after adding Corners) forces 2-column mode, which is 70px wider and
+      // breaks canvas screenshot tests (expected 1836px, got 1766px).
+      if (availableHeight < 530) {
         toolbarColumns.value = 2
       } else {
         toolbarColumns.value = 1
