@@ -19,6 +19,29 @@
         <span class="d-inline d-sm-none">Layouts</span>
       </button>
 
+      <!-- Full-layout JSON, same companion path as YAKB Copy layout / Paste layout.
+           Own group so it is not a fourth Import/Export/Share action. -->
+      <div class="btn-group layout-clipboard-group" role="group" aria-label="Layout JSON clipboard">
+        <button
+          class="btn btn-outline-primary"
+          data-testid="button-copy-layout"
+          type="button"
+          title="Copy layout JSON to clipboard"
+          @click="copyLayout"
+        >
+          Copy
+        </button>
+        <button
+          class="btn btn-outline-primary"
+          data-testid="button-paste-layout"
+          type="button"
+          title="Paste layout JSON from clipboard"
+          @click="pasteLayout"
+        >
+          Paste
+        </button>
+      </div>
+
       <!-- Import/Export/Share buttons -->
       <div class="btn-group" role="group">
         <div class="dropdown">
@@ -256,9 +279,10 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { useKeyboardStore } from '@/stores/keyboard'
+import { useKeyboardStore, type Keyboard } from '@/stores/keyboard'
 import presetsMetadata from '@/data/presets.json'
 import { toast } from '@/composables/useToast'
+import { parseJsonString, stringifyWithRounding } from '@/utils/serialization'
 import { useKeyboardExport } from '@/composables/useKeyboardExport'
 import { useKeyboardImport } from '@/composables/useKeyboardImport'
 import UrlImportModal from './UrlImportModal.vue'
@@ -330,6 +354,64 @@ const showMyLayoutsModal = ref(false)
 const showViaImportModal = ref(false)
 const showShortLinkConfirmModal = ref(false)
 
+// Full layout JSON clipboard (not selected-key Ctrl+C / Ctrl+V)
+const copyLayout = async () => {
+  try {
+    const data = keyboardStore.getSerializedData('kle')
+    const text = stringifyWithRounding(data, 2)
+    if (!text) {
+      toast.showError('Nothing to copy', 'Copy failed')
+      return
+    }
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(text)
+      toast.showSuccess('Layout JSON copied to clipboard', 'Copied', { duration: 2000 })
+      return
+    }
+
+    toast.showInfo('Copy this layout JSON: ' + text, 'Layout JSON', {
+      duration: 10000,
+      showCloseButton: true,
+    })
+  } catch (error) {
+    console.error('Error copying layout JSON:', error)
+    toast.showError('Please try again.', 'Copy failed')
+  }
+}
+
+const pasteLayout = async () => {
+  try {
+    if (!navigator.clipboard || !navigator.clipboard.readText) {
+      toast.showError('Paste from the JSON panel instead.', 'Paste unavailable')
+      return
+    }
+
+    const text = await navigator.clipboard.readText()
+    if (!text || !text.trim()) {
+      toast.showError('Clipboard is empty', 'Paste failed')
+      return
+    }
+
+    const data = parseJsonString(text)
+    if (
+      data &&
+      typeof data === 'object' &&
+      !Array.isArray(data) &&
+      'keys' in (data as Record<string, unknown>)
+    ) {
+      keyboardStore.loadKeyboard(data as Keyboard)
+    } else {
+      keyboardStore.loadKLELayout(data)
+    }
+    toast.showSuccess('Layout JSON pasted', 'Pasted', { duration: 2000 })
+  } catch (error) {
+    console.error('Error pasting layout JSON:', error)
+    const message = error instanceof Error ? error.message : 'Clipboard is not valid layout JSON'
+    toast.showError(message, 'Paste failed')
+  }
+}
+
 // Share
 const shareLayout = async () => {
   try {
@@ -380,6 +462,16 @@ const shareLayout = async () => {
 
 .keyboard-toolbar .btn-outline-primary {
   border-width: 2px;
+}
+
+.layout-clipboard-group > .btn:first-child {
+  border-top-left-radius: 6px !important;
+  border-bottom-left-radius: 6px !important;
+}
+
+.layout-clipboard-group > .btn:last-child {
+  border-top-right-radius: 6px !important;
+  border-bottom-right-radius: 6px !important;
 }
 
 /* Import/Export/Share button group corner rounding. The outer group is always exactly

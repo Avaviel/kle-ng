@@ -530,4 +530,99 @@ describe('KeyboardToolbar', () => {
       expect(writeText).toHaveBeenCalledWith(expect.stringContaining('#share='))
     })
   })
+
+  describe('layout JSON copy/paste', () => {
+    const mountToolbar = (pinia = createPinia()) =>
+      mount(KeyboardToolbar, { global: { plugins: [pinia] } })
+
+    it('renders Copy and Paste to the left of Import', () => {
+      const wrapper = mountToolbar()
+      const copy = wrapper.find('[data-testid="button-copy-layout"]')
+      const paste = wrapper.find('[data-testid="button-paste-layout"]')
+      const importer = wrapper.find('[data-testid="button-import"]')
+
+      expect(copy.exists()).toBe(true)
+      expect(paste.exists()).toBe(true)
+      expect(copy.text()).toBe('Copy')
+      expect(paste.text()).toBe('Paste')
+
+      const html = wrapper.html()
+      expect(html.indexOf('button-copy-layout')).toBeLessThan(html.indexOf('button-import'))
+      expect(importer.exists()).toBe(true)
+    })
+
+    it('copies the current layout JSON to the clipboard', async () => {
+      const pinia = createPinia()
+      setActivePinia(pinia)
+      const store = useKeyboardStore()
+      store.clearLayout()
+      store.addKey({ labels: ['A', '', '', '', '', '', '', '', '', '', '', ''] })
+      store.metadata.name = 'Copy fixture'
+
+      const writeText = vi.fn().mockResolvedValue(undefined)
+      Object.defineProperty(navigator, 'clipboard', {
+        value: { writeText, readText: vi.fn() },
+        configurable: true,
+      })
+
+      const wrapper = mountToolbar(pinia)
+      await wrapper.find('[data-testid="button-copy-layout"]').trigger('click')
+      await flushPromises()
+
+      expect(writeText).toHaveBeenCalledTimes(1)
+      const copied = writeText.mock.calls[0]![0] as string
+      expect(copied).toContain('Copy fixture')
+      expect(copied).toContain('A')
+      expect(() => JSON.parse(copied)).not.toThrow()
+      expect(toast.showSuccess).toHaveBeenCalledWith(
+        'Layout JSON copied to clipboard',
+        'Copied',
+        expect.objectContaining({ duration: 2000 }),
+      )
+    })
+
+    it('pastes clipboard JSON as a replacement layout', async () => {
+      const pinia = createPinia()
+      setActivePinia(pinia)
+      const store = useKeyboardStore()
+      store.clearLayout()
+      store.addKey({ labels: ['Old', '', '', '', '', '', '', '', '', '', '', ''] })
+
+      const layout = [{ name: 'Pasted layout' }, ['New']]
+      const readText = vi.fn().mockResolvedValue(JSON.stringify(layout))
+      Object.defineProperty(navigator, 'clipboard', {
+        value: { writeText: vi.fn(), readText },
+        configurable: true,
+      })
+
+      const wrapper = mountToolbar(pinia)
+      await wrapper.find('[data-testid="button-paste-layout"]').trigger('click')
+      await flushPromises()
+
+      expect(store.metadata.name).toBe('Pasted layout')
+      expect(store.keys.some((key) => key.labels.includes('New'))).toBe(true)
+      expect(store.keys.some((key) => key.labels.includes('Old'))).toBe(false)
+      expect(toast.showSuccess).toHaveBeenCalledWith(
+        'Layout JSON pasted',
+        'Pasted',
+        expect.objectContaining({ duration: 2000 }),
+      )
+    })
+
+    it('reports invalid clipboard JSON', async () => {
+      const pinia = createPinia()
+      setActivePinia(pinia)
+
+      Object.defineProperty(navigator, 'clipboard', {
+        value: { writeText: vi.fn(), readText: vi.fn().mockResolvedValue('not-json') },
+        configurable: true,
+      })
+
+      const wrapper = mountToolbar(pinia)
+      await wrapper.find('[data-testid="button-paste-layout"]').trigger('click')
+      await flushPromises()
+
+      expect(toast.showError).toHaveBeenCalledWith(expect.any(String), 'Paste failed')
+    })
+  })
 })

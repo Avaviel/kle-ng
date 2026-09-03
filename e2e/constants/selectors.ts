@@ -55,6 +55,8 @@ export const SELECTORS = {
    * Import/Export
    */
   IMPORT_EXPORT: {
+    COPY_LAYOUT_BUTTON: '[data-testid="button-copy-layout"]',
+    PASTE_LAYOUT_BUTTON: '[data-testid="button-paste-layout"]',
     IMPORT_BUTTON: '[data-testid="button-import"]',
     EXPORT_BUTTON: '[data-testid="button-export"]',
     FROM_FILE: '[data-testid="import-from-file"]',
